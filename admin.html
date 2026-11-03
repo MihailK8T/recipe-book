@@ -323,8 +323,10 @@
     // читаем кэш сайта: что реально лежит в локальном хранилище
     try{
       var cached=JSON.parse(localStorage.getItem('recipebook_db')||'[]');
+      var rr='?';
+      try{var raw=JSON.parse(localStorage.getItem('recipebook_recipes')||'[]');rr=Array.isArray(raw)?raw.length+' шт':raw.length;}catch(e){rr='ошибка чтения';}
       var cachedByKey=Object.keys(localStorage).filter(function(k){return /recipe/i.test(k);}).join(', ');
-      dlog('[кэш] recipebook_db в localStorage: '+(Array.isArray(cached)?cached.length+' шт':'?')+' · ключи: '+(cachedByKey||'нет'));
+      dlog('[кэш] recipebook_db='+(Array.isArray(cached)?cached.length:'?')+' · recipebook_recipes='+rr+' · ключи: '+(cachedByKey||'нет'));
     }catch(e){dlog('[кэш] не прочитался: '+e.message);}
     dlog('[поочерёдно запрашиваю…]');
     var uid=(me&&me.id||'');
@@ -332,6 +334,11 @@
     dreq('[2] anon recipes', 'recipes?select=id,name,owner_id,private&limit=5', {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY});
     dreq('[3] authed recipes', 'recipes?select=id,name,owner_id,private&limit=5', headers()).then(function(){
       dlog('[готово] если выше статусов 200 и данные — значит дело в другом месте; если 401/403 — в RLS/токене.');
+    });
+    // Проверка, работает ли is_admin для текущего токена, и есть ли записи вообще.
+    dreq('[4] RPC is_admin()', 'rpc/is_admin', headers());
+    dreq('[5] count recipes (мой токен)', 'recipes?select=id', headers()).then(function(){
+      dlog('[5b] Если в [5] пустой массив — рецептов в БД нет вовсе, и виноват не RLS. Если [4]=false — функция is_admin не срабатывает.');
     });
     window.__diagAgain=diagRecipes;
   }
