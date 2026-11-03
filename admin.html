@@ -165,7 +165,7 @@
       if(res.access_token){
         localStorage.setItem(AUTH_KEY,res.access_token);
         me={email:email,id:res.user&&res.user.id};
-        return api('staff?select=*&limit=1',{headers:headers()}).then(function(rows){
+        return api('staff?select=*&id=eq.'+(res.user&&res.user.id),{headers:headers()}).then(function(rows){
           var mine=rows?rows[0]:null;
           if(!mine){err.textContent='У этого аккаунта нет прав администратора.';logout(true);return;}
           me.role=mine.role;
@@ -298,7 +298,7 @@
         acts.appendChild(del);li.appendChild(acts);
         list.appendChild(li);
       });
-    }).catch(function(){list.innerHTML='<li class="empty">Нет доступа к рецептам.</li>';});
+    }).catch(function(e){list.innerHTML='<li class="empty">Нет доступа к рецептам ('+(e&&e.message||'')+').</li>';});
   }
 
   document.getElementById('logoutBtn')&&document.getElementById('logoutBtn').addEventListener('click',function(){logout();});
