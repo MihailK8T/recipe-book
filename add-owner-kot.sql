@@ -53,10 +53,16 @@ select
 from auth.users where email = 'mr.mihail.kot@mail.ru';
 
 -- 4) Берём id и гарантируем профиль (approved = true: владелец одобрен сразу).
-insert into public.profiles (id, name, email, approved)
-select id, 'kot', 'mr.mihail.kot@mail.ru', true
-from auth.users where email = 'mr.mihail.kot@mail.ru'
-on conflict (id) do update set name = 'kot', email = excluded.email, approved = true;
+do $$
+declare v_id uuid;
+begin
+  select id into v_id from auth.users where email = 'mr.mihail.kot@mail.ru';
+  if v_id is not null then
+    insert into public.profiles (id, name, email, approved)
+    values (v_id, 'kot', 'mr.mihail.kot@mail.ru', true)
+    on conflict (id) do update set name = 'kot', email = excluded.email, approved = true;
+  end if;
+end $$;
 
 -- 5) Роль owner в staff.
 insert into public.staff (id, email, role)
