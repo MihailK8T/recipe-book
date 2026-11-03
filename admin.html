@@ -139,10 +139,10 @@
 
     <div id="diagBox" style="margin-top:20px;padding:14px 16px;border:1px dashed var(--accent-light);border-radius:12px;font-family:var(--font-mono);font-size:.78rem;color:var(--muted);white-space:pre-wrap;display:none"></div>
     <div style="margin-top:10px;display:none" id="diagBtns"><button type="button" class="btn btn-sm" onclick="window.__diagAgain&&window.__diagAgain()">Повторить диагностику</button></div>
-    <div id="syncBox" style="margin-top:16px;display:none">
+    <div id="syncBox" style="margin-top:16px;display:block">
       <div class="card" style="max-width:none">
         <h2 style="margin-bottom:8px">Синхронизация локального кэша</h2>
-        <p style="color:var(--muted);font-size:.9rem;margin-bottom:10px">Если рецепты были добавлены на сайте без входа или кэш не успел сохраниться, они могли остаться только в браузере. Кнопка переносит их из localStorage в базу всех ИХ владельцем — вы (@owner).</p>
+        <p style="color:var(--muted);font-size:.9rem;margin-bottom:10px"><span id="cacheCount">Проверяю кэш…</span></p>
         <button type="button" class="btn btn-primary" id="syncBtn">Перенести локальные рецепты в базу</button>
         <span style="margin-left:10px" id="syncResult"></span>
       </div>
@@ -190,14 +190,16 @@
   function logout(clean){try{localStorage.removeItem(AUTH_KEY);}catch(e){}me=null;document.getElementById('app').style.display='none';document.getElementById('gate').style.display='flex';document.getElementById('whoami').textContent='';}
   function enterAdmin(){document.getElementById('gate').style.display='none';document.getElementById('app').style.display='block';document.getElementById('whoami').textContent=me.email+' · '+me.role;refresh();
     try{diagRecipes();}catch(e){}}
-  function refresh(){loadStats();loadStaff();loadUsers();loadRecipes();
-
-    // показать кнопку синхронизации только если в кэше есть рецепты
+  function refresh(){
+    // показать блок синхронизации (видим всегда, чтобы видеть число рецептов в кэше)
     try{
-      var cache=JSON.parse(localStorage.getItem('recipebook_recipes')||'[]');
+      var cache=JSON.parse(localStorage.getItem('recipebook_recipes')||'null');
       var sb=document.getElementById('syncBox');
-      if(Array.isArray(cache)&&cache.length){sb.style.display='block';}
+      var n=(Array.isArray(cache)?cache.length:(cache===null?'нет ключа':0));
+      var sr=document.getElementById('cacheCount');
+      if(sr)sr.textContent='В кэше этого браузера (localStorage) сейчас: '+n+' рецепт(ов). Кнопка «Перенести» появляется, если найдены рецепты.';
     }catch(e){}
+    loadStats();loadStaff();loadUsers();loadRecipes();
   }
 
   function loadStats(){
