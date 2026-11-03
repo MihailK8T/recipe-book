@@ -959,7 +959,7 @@
         fillFromLink(d,url);
         msg.textContent='Готово! Заполните недостающее и сохраните.';msg.className='modal-msg';
       })
-      .catch(function(e){btn.disabled=false;btn.textContent=old;msg.textContent='Сетевая ошибка. Убедитесь, что Supabase-функция развёрнута.';msg.className='modal-msg error';});
+      .catch(function(e){btn.disabled=false;btn.textContent=old;msg.textContent='Разбор недоступен: Edge-функция fetch_recipe не развёрнута в Supabase. Задеплойте функцию (supabase functions deploy fetch_recipe) и попробуйте снова.';msg.className='modal-msg error';});
   });
   function fillFromLink(d,url){
     if(d.name)document.getElementById('r-name').value=d.name;
@@ -968,7 +968,7 @@
     if(d.category){
       var cat=(d.category||'').trim();
       if(cat){
-        if(!allCats().indexOf(cat)>=0){addCat(cat);fillCatSelect();}
+        if(allCats().indexOf(cat)<0){addCat(cat);fillCatSelect();}
         document.getElementById('r-cat').value=cat;
       }
     }
