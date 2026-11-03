@@ -29,6 +29,8 @@ create table if not exists public.recipes (
   ingredients text default '',
   steps       text default '',
   private     boolean default false,
+  status      text,                    -- статус рецепта (Приготовлено / Найдено / свой)
+  custom_fields text default '[]',     -- свои поля: [{"name":"Рекомендация","value":"..."}]
   photo       text,
   photo_name  text,
   photo_type  text,
@@ -49,6 +51,27 @@ create table if not exists public.user_prefs (
   quick_items  text default '',
   updated_at   timestamptz default now()
 );
+
+-- ===== STAFF (роли для админ-панели) =====
+-- Привязка к auth.users по email. Хранит роль: owner / admin / moderator.
+create table if not exists public.staff (
+  id         uuid primary key references auth.users (id) on delete cascade,
+  email      text not null,
+  role       text not null default 'moderator' check (role in ('owner','admin','moderator')),
+  created_at timestamptz default now()
+);
+
+-- Вспомогательная функция: роль текущего (аутентифицированного) пользователя.
+create or replace function public.my_role()
+returns text language sql stable as $$
+  select role from public.staff where id = auth.uid();
+$$;
+
+-- Можно ли текущему пользователю выполнять админ-действия (owner/admin).
+create or replace function public.is_admin()
+returns boolean language sql stable as $$
+  select exists(select 1 from public.staff where id = auth.uid() and role in ('owner','admin'));
+$$;
 
 -- Функция-триггер: при создании пользователя в auth создаём профиль.
 create or replace function public.handle_new_user()
@@ -108,6 +131,17 @@ create policy prefs_all_own on public.user_prefs
   for all to authenticated
   using (account_id = auth.uid()) with check (account_id = auth.uid());
 
+-- STAFF: только админы видят/меняют список ролей; сотрудник видит свою строку.
+alter table public.staff enable row level security;
+drop policy if exists staff_select on public.staff;
+create policy staff_select on public.staff
+  for select to authenticated
+  using (public.is_admin() or id = auth.uid());
+drop policy if exists staff_admin_all on public.staff;
+create policy staff_admin_all on public.staff
+  for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
 -- =========================================================
 -- Гранты: анонимный ключ НЕ имеет доступа к данным.
 -- Только аутентифицированные (через токен) и только по политикам.
@@ -115,8 +149,12 @@ create policy prefs_all_own on public.user_prefs
 revoke all on public.profiles from anon;
 revoke all on public.user_prefs from anon;
 revoke select, insert, update, delete on public.recipes from anon;
+revoke all on public.staff from anon;
 grant usage on schema public to anon, authenticated;
 grant usage, select on all sequences in schema public to authenticated;
 grant select, insert, update, delete on public.profiles   to authenticated;
 grant select, insert, update, delete on public.recipes    to authenticated;
 grant select, insert, update, delete on public.user_prefs to authenticated;
+grant select, insert, update, delete on public.staff      to authenticated;
+grant execute on function public.my_role() to authenticated;
+grant execute on function public.is_admin() to authenticated;

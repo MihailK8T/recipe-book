@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Моя книга рецептов</title>
-<meta name="description" content="Личная и общая книга рецептов: темы оформления, фоны, аккаунты, добавление фото и копирование рецептов.">
+<title>BY KOT · Рецепты, которые мурчат</title>
+<meta name="description" content="BY KOT — личные и общие рецепты: статусы, свои поля, темы, фоны, аккаунты и добавление фото. Рецепты, которые мурчат.">
 <style>
   :root{
     --radius:16px;--maxw:1100px;
@@ -280,7 +280,7 @@
           <path d="M32.5 24.5l-2-2 3-3 2 2-3 3z"/>
         </g>
       </svg>
-      <span class="name"><b>Книга рецептов</b><small>семейные рецепты</small></span>
+      <span class="name"><b>BY KOT</b><small>рецепты, которые мурчат</small></span>
     </div>
     <div class="nav-controls">
       <button class="theme-toggle" id="themeToggle" type="button" aria-label="Переключить светлую/тёмную тему" aria-pressed="false">
@@ -311,7 +311,7 @@
   <section id="bookView">
     <div class="toolbar">
       <div>
-        <h1 id="bookTitle">Книга рецептов</h1>
+        <h1 id="bookTitle">BY KOT · Рецепты, которые мурчат</h1>
         <p class="sub" id="countLine">все рецепты</p>
       </div>
       <div class="toolbar-actions">
@@ -416,6 +416,18 @@
     </div>
 
     <div class="field"><label for="r-cat">Категория</label><select id="r-cat"></select></div>
+    <div class="field">
+      <label for="r-status">Статус</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="r-status" style="flex:1;min-width:150px"><option value="">Без статуса</option></select>
+        <button type="button" class="btn btn-ghost btn-sm" id="manageStatusesBtn">✎ Статусы</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Мои заметки (поле — значение)</label>
+      <div id="customFieldsWrap" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
+      <button type="button" class="btn btn-ghost btn-sm" id="addFieldBtn">+ Добавить поле</button>
+    </div>
     <div class="row2">
       <div class="field"><label for="r-servings">Порций</label><input type="number" id="r-servings" min="1" value="2" aria-label="Порций"></div>
       <div class="field"><label for="r-time">Время, мин</label><input type="number" id="r-time" min="0" value="30" aria-label="Время приготовления в минутах"></div>
@@ -459,6 +471,10 @@
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<footer style="text-align:center;padding:24px 0 34px;color:var(--muted);font-size:.85rem;border-top:1px solid var(--line);margin-top:10px">
+  <a href="admin.html" style="font-weight:700">Админ-панель</a>
+</footer>
 
 <script>
 (function(){
@@ -548,7 +564,7 @@
   /* map recipe object -> DB row. owner_id comes from the authenticated user. */
   function recToRow(r){
     var me=currentUser();
-    var row={id:r.id,name:r.name,cat:r.cat||null,servings:r.servings||2,time:r.time||0,description:r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:r.private?true:false,photo:r.photo||null,photo_name:r.photo_name||null,photo_type:r.photo_type||null,created_at:r.created,updated_at:r.updated||r.created};
+    var row={id:r.id,name:r.name,cat:r.cat||null,servings:r.servings||2,time:r.time||0,description:r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:r.private?true:false,status:r.status||null,custom_fields:JSON.stringify(r.custom_fields||[]),photo:r.photo||null,photo_name:r.photo_name||null,photo_type:r.photo_type||null,created_at:r.created,updated_at:r.updated||r.created};
     if(me&&me.id)row.owner_id=me.id; // у анонима owner_id нет — фейл в RLS корректно отклонит запись
     return row;
   }
@@ -568,7 +584,7 @@
     if(!SB_ON)return Promise.resolve(false);
     return sbFetch('recipes?select=*&order=created_at.asc',{method:'GET',headers:sbHeaders()}).then(function(rows){
       if(!rows)return false;
-      var mapped=rows.map(function(r){var o={id:r.id,name:r.name,cat:r.cat,servings:r.servings,time:r.time,desc:r.description||r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:!!r.private,owner:r.owner||'',photo:r.photo||null,photo_name:r.photo_name||null,photo_type:r.photo_type||null,created:r.created_at||r.created,updated:r.updated_at||r.updated};return o;});
+      var mapped=rows.map(function(r){var o={id:r.id,name:r.name,cat:r.cat,servings:r.servings,time:r.time,desc:r.description||r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:!!r.private,status:r.status||null,custom_fields:(function(){try{return JSON.parse(r.custom_fields||'[]');}catch(e){return[];}})(),owner:r.owner||'',photo:r.photo||null,photo_name:r.photo_name||null,photo_type:r.photo_type||null,created:r.created_at||r.created,updated:r.updated_at||r.updated};return o;});
       if(mapped.length){DB.recipes=mapped;saveRecipes();}
       return true;
     }).catch(function(){return false;});
@@ -577,7 +593,7 @@
   /* ---- per-account UI preferences stored in Supabase (user_prefs) ---- */
   function prefsRow(){
     var me=currentUser();if(!me||!me.name)return null;
-    var row={theme:root.classList.contains('theme-light')?'light':'dark',accent:root.getAttribute('data-theme')||'t3',bg:(function(){var c='bg';root.classList.forEach(function(cl){if(cl.indexOf('af-')===0)c=cl.slice(3);});return c;})(),large_text:largeTextOn(),quick_items:quickItems().join('\n')};
+    var row={theme:root.classList.contains('theme-light')?'light':'dark',accent:root.getAttribute('data-theme')||'t3',bg:(function(){var c='bg';root.classList.forEach(function(cl){if(cl.indexOf('af-')===0)c=cl.slice(3);});return c;})(),large_text:largeTextOn(),quick_items:quickItems().join('\n'),statuses:statusList().join('\n')};
     // account_id берём из токена; RLS разрешит запись только своей строке.
     if(me.id)row.account_id=me.id;
     return row;
@@ -604,6 +620,10 @@
     if(p.quick_items){
       var qi=String(p.quick_items).split('\n').map(function(x){return x.trim();}).filter(Boolean);
       if(qi.length){saveJSON(QUICK_KEY,qi);buildIngQuick();}
+    }
+    if(p.statuses){
+      var ss=String(p.statuses).split('\n').map(function(x){return x.trim();}).filter(Boolean);
+      if(ss.length){saveJSON(STATUS_KEY,ss);fillStatusSelect();}
     }
   }
   /* Called when the logged-in user changes a UI preference: persist to cloud. */
@@ -745,6 +765,7 @@
     else{pr.className='pill public';pr.textContent='🌍 Общее';}
     tags.appendChild(pr);
     if(r.cat){var c=document.createElement('span');c.className='pill';c.textContent=r.cat;tags.appendChild(c);}
+    if(r.status){var stv=document.createElement('span');stv.className='pill';stv.style.cssText='border-color:var(--accent-strong);color:var(--accent-light,var(--accent-strong))';stv.textContent='✔ '+r.status;tags.appendChild(stv);}
     if(r.owner){var o=document.createElement('span');o.className='pill';o.textContent='@'+r.owner;tags.appendChild(o);}
     body.appendChild(h);body.appendChild(tags);
     if(r.desc){var d=document.createElement('p');d.style.cssText='color:var(--muted);font-size:.88rem';d.textContent=r.desc;body.appendChild(d);}
@@ -804,6 +825,15 @@
     var tl=document.createElement('span');tl.style.cssText='font-weight:700;font-size:.95rem';tl.textContent=r.private?'🔒 Личный рецепт':'🌍 Общий (виден всем)';
     var owner=document.createElement('span');owner.className='pill';owner.textContent='@'+(r.owner||'—');
     pt.appendChild(tl);pt.appendChild(owner);priv.appendChild(pt);side.appendChild(priv);
+    if(r.status){var stChip=document.createElement('div');stChip.className='stat-chip';stChip.style.cssText='margin-bottom:6px;align-self:flex-start';stChip.textContent='✔ '+r.status;priv.appendChild(stChip);}
+    var cf=customFieldsToRows(r);
+    if(cf.length){
+      var cfPanel=document.createElement('div');cfPanel.className='panel';
+      cfPanel.appendChild(ch('Мои заметки'));
+      var cfr=document.createElement('div');cfr.style.cssText='display:flex;flex-direction:column;gap:6px;font-size:.92rem';
+      cf.forEach(function(f){var d=document.createElement('div');d.style.cssText='display:flex;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line)';var k=document.createElement('b');k.textContent=f.name;var v=document.createElement('span');v.style.cssText='color:var(--muted)';v.textContent=f.value||'—';d.appendChild(k);d.appendChild(v);cfr.appendChild(d);});
+      cfPanel.appendChild(cfr);side.appendChild(cfPanel);
+    }
     var ingPanel=document.createElement('div');ingPanel.className='panel';
     ingPanel.appendChild(ch('Ингредиенты'));
     var ul=document.createElement('ul');ul.className='ingredients';
@@ -831,6 +861,12 @@
     c.appendChild(img);c.appendChild(content);c.appendChild(side);
   }
   function ch(t){var h=document.createElement('h3');h.textContent=t;return h;}
+  function customFieldsToRows(r){
+    var arr=(r&&r.custom_fields)||[];
+    if(Array.isArray(arr))return arr;
+    if(typeof arr==='string'){try{return JSON.parse(arr)||[];}catch(e){return[];}}
+    return [];
+  }
   function metaRow(k,v){var d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;gap:10px';var kk=document.createElement('span');kk.style.color='var(--muted)';kk.textContent=k;var vv=document.createElement('b');vv.textContent=v;d.appendChild(kk);d.appendChild(vv);return d;}
 
   /* modal */
@@ -846,6 +882,9 @@
     document.getElementById('fetchMsg').textContent='';
     removePhotoPreview();setMsg('');
     fillCatSelect();
+    fillStatusSelect();
+    document.getElementById('r-status').value='';
+    renderCustomFields([]);
     document.getElementById('modalOverlay').classList.add('open');
     setTimeout(function(){document.getElementById('r-name').focus();},50);
   }
@@ -860,6 +899,9 @@
     document.getElementById('r-ingredients').value=r.ingredients||'';
     document.getElementById('r-steps').value=r.steps||'';
     document.getElementById('r-private').checked=!!r.private;
+    fillStatusSelect();
+    document.getElementById('r-status').value=r.status||'';
+    renderCustomFields(r.custom_fields||[]);
     document.getElementById('modalTitle').textContent='Изменить рецепт';
     document.getElementById('saveRecipeBtn').textContent='Сохранить изменения';
     pendingPhoto=r.photo||null;
@@ -1017,6 +1059,80 @@
   }
   buildIngQuick();
 
+  /* ---- recipe statuses (Приготовлено / Найдено + свои) ---- */
+  var STATUS_KEY='recipebook_statuses';
+  var DEFAULT_STATUSES=['Приготовлено','Найдено'];
+  function statusList(){var a=loadJSON(STATUS_KEY,DEFAULT_STATUSES);return Array.isArray(a)&&a.length?a:DEFAULT_STATUSES;}
+  function saveStatuses(s){saveJSON(STATUS_KEY,s);syncPrefs();}
+  function fillStatusSelect(){
+    var sel=document.getElementById('r-status');if(!sel)return;
+    sel.innerHTML='<option value="">Без статуса</option>';
+    statusList().forEach(function(s){var o=document.createElement('option');o.value=s;o.textContent=s;sel.appendChild(o);});
+  }
+  function renderStatusManage(boxList){
+    /* reuse the categories modal list */
+    var box=document.getElementById('catsList');if(!box)return;
+    box.innerHTML='';
+    var addRow=document.createElement('div');addRow.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px';
+    addRow.innerHTML='<input type="text" id="newStatus" placeholder="Новый статус (например: Попробовать)" style="flex:1;min-width:150px;padding:11px 13px;border-radius:10px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-family:inherit;font-size:.95rem">';
+    var btn=document.createElement('button');btn.type='button';btn.className='btn btn-primary btn-sm';btn.textContent='Добавить';
+    btn.addEventListener('click',function(){
+      var v=(document.getElementById('newStatus').value||'').trim();
+      if(!v||statusList().indexOf(v)>=0){renderStatusManage(box);return;}
+      var cur=statusList();cur.push(v);saveStatuses(cur);
+      renderStatusManage(box);fillStatusSelect();
+    });
+    addRow.appendChild(btn);box.appendChild(addRow);
+    var h=document.createElement('div');h.style.cssText='font-size:.82rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px;font-family:var(--font-mono)';h.textContent='Статусы рецептов';box.appendChild(h);
+    statusList().forEach(function(s){
+      var row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px dashed var(--line);font-size:.95rem';
+      var nm=document.createElement('span');nm.textContent=s;nm.style.cssText='font-weight:600';
+      var del=document.createElement('button');del.type='button';del.className='btn btn-ghost btn-sm';del.textContent='🗑 Удалить';
+      del.addEventListener('click',function(){
+        saveStatuses(statusList().filter(function(y){return y!==s;}));
+        renderStatusManage(box);fillStatusSelect();
+      });
+      row.appendChild(nm);row.appendChild(del);box.appendChild(row);
+    });
+  }
+  document.getElementById('manageStatusesBtn').addEventListener('click',function(){
+    closeOverlay();closeDD();
+    document.getElementById('catsOverlay').classList.add('open');
+    renderStatusManage(document.getElementById('catsList'));
+    var ns=document.getElementById('newStatus');if(ns)ns.focus();
+  });
+
+  /* ---- custom fillable fields ("Название — значение", рекомендации) ---- */
+  function customFieldsFromDom(){
+    var out=[];
+    var wrap=document.getElementById('customFieldsWrap');
+    if(!wrap)return out;
+    wrap.querySelectorAll('.cf-row').forEach(function(row){
+      var k=row.querySelector('.cf-name').value.trim();
+      var v=row.querySelector('.cf-val').value.trim();
+      if(k)out.push({name:k,value:v});
+    });
+    return out;
+  }
+  function renderCustomFields(fields){
+    var wrap=document.getElementById('customFieldsWrap');if(!wrap)return;
+    wrap.innerHTML='';
+    (fields||[]).forEach(function(f){
+      var row=document.createElement('div');row.className='cf-row';row.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+      var inp=document.createElement('input');inp.type='text';inp.className='cf-name';inp.placeholder='Название';inp.value=f.name||'';inp.style.cssText='flex:1 1 120px;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-family:inherit;font-size:.9rem';
+      var val=document.createElement('input');val.type='text';val.className='cf-val';val.placeholder='Значение';val.value=f.value||'';val.style.cssText='flex:2 1 160px;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-family:inherit;font-size:.9rem';
+      var x=document.createElement('button');x.type='button';x.className='btn btn-ghost btn-sm';x.textContent='✕';x.setAttribute('aria-label','Удалить поле');
+      x.addEventListener('click',function(){row.remove();});
+      row.appendChild(inp);row.appendChild(val);row.appendChild(x);
+      wrap.appendChild(row);
+    });
+  }
+  document.getElementById('addFieldBtn').addEventListener('click',function(){
+    var cur=customFieldsFromDom();
+    cur.push({name:'Рекомендация',value:''});
+    renderCustomFields(cur);
+  });
+
   document.getElementById('recipeForm').addEventListener('submit',function(e){
     e.preventDefault();
     var me=currentUser();if(!me)return;
@@ -1032,6 +1148,8 @@
     rec.ingredients=document.getElementById('r-ingredients').value.trim();
     rec.steps=document.getElementById('r-steps').value.trim();
     rec.private=document.getElementById('r-private').checked;
+    rec.status=document.getElementById('r-status').value;
+    rec.custom_fields=customFieldsFromDom().filter(function(f){return f.name;});
     if(pendingPhoto){
       rec.photo=pendingPhoto;
       if(pendingPhotoName)rec.photo_name=pendingPhotoName;
@@ -1063,6 +1181,7 @@
     if(r.desc)lines.push(r.desc);
     lines.push('', '🕑 Время: '+(r.time?r.time+' мин':'—')+(r.servings?' · 👥 Порций: '+r.servings:''));
     if(r.cat)lines.push('🏷 Категория: '+r.cat);
+    if(r.status)lines.push('✔ Статус: '+r.status);
     lines.push('');
     var ings=(r.ingredients||'').split('\n').map(function(x){return x.trim();}).filter(Boolean);
     if(ings.length){lines.push('📋 ИНГРЕДИЕНТЫ:');ings.forEach(function(i){lines.push('  • '+i);});lines.push('');}
@@ -1130,7 +1249,7 @@
     renderAuthUI();renderBook();
     switchView('book');
     applyTheme(defaultTheme);
-    document.getElementById('bookTitle').textContent='Книга рецептов';
+document.getElementById('bookTitle').textContent='BY KOT · Рецепты, которые мурчат';
     toast('Добро пожаловать, '+name);
     applyPrefsFromDb(name);
   }
@@ -1150,11 +1269,11 @@
     sbSignout().then(function(){});
     if(storage){storage.removeItem(SESSION_KEY);storage.removeItem('recipebook_me_email');storage.removeItem(AUTH_KEY);}
     setAuthUser(null);AUTH_USER=null;
-    renderAuthUI();renderBook();closeDD();switchView('book');applyTheme(defaultTheme);document.getElementById('bookTitle').textContent='Книга рецептов';toast('Вы вышли');
+    renderAuthUI();renderBook();closeDD();switchView('book');applyTheme(defaultTheme);document.getElementById('bookTitle').textContent='BY KOT · Рецепты, которые мурчат';toast('Вы вышли');
   }
 
   document.getElementById('guestLoginBtn').addEventListener('click',showLogin);
-  document.getElementById('loginView').addEventListener('click',function(e){if(e.target.id==='backBook2'){switchView('book');document.getElementById('bookTitle').textContent='Книга рецептов';applyTheme(defaultTheme);}});
+  document.getElementById('loginView').addEventListener('click',function(e){if(e.target.id==='backBook2'){switchView('book');document.getElementById('bookTitle').textContent='BY KOT · Рецепты, которые мурчат';applyTheme(defaultTheme);}});
 
   /* profile dropdown */
   var pm=document.getElementById('profileMenu'),dd=document.getElementById('profileDD'),pbtn=document.getElementById('profileBtn');

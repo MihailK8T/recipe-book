@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BY KOT · Админ-панель</title>
+<meta name="description" content="Админ-панель BY KOT: управление аккаунтами, рецептами, работниками и статистикой.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' data:; img-src * data: blob:; connect-src 'self' https://xandcwnvmuyhmpzjylcy.supabase.co https://*.supabase.co; font-src 'self' data:;">
+<style>
+  :root{
+    --radius:14px;--maxw:1080px;
+    --font-ui:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+    --font-mono:"Consolas","Menlo",monospace;
+    --accent:#16a34a;--accent-strong:#15803d;
+  }
+  :root{--bg:#0b0e0c;--bg-soft:#111612;--panel:#151b16;--panel-2:#1d251e;--line:#2c3a2e;--ink:#ffffff;--muted:#c3d1c4;--btn-text:#ffffff;--shadow:0 10px 28px rgba(0,0,0,.6);--accent-bg:rgba(34,197,94,.18);--accent-light:#2ecc71;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font-ui);background:var(--bg);color:var(--ink);line-height:1.6;min-height:100vh;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent-light)}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 20px}
+  header{position:sticky;top:0;z-index:60;background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+  .top{display:flex;align-items:center;justify-content:space-between;height:60px;gap:12px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.03em}
+  .brand .name{display:flex;flex-direction:column;line-height:1.1}
+  .brand .name small{font-weight:600;font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;color:var(--accent-light)}
+  .top .whoami{font-size:.85rem;font-weight:700;color:var(--accent-light)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 16px;border-radius:10px;font-weight:700;font-size:.9rem;border:1px solid transparent;cursor:pointer;transition:.15s ease;font-family:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line)}
+  .btn:hover{border-color:var(--accent-light);color:var(--accent-light)}
+  .btn-primary{background:var(--accent);color:var(--btn-text);border-color:transparent}
+  .btn-primary:hover{background:var(--accent-strong);color:#fff;border-color:transparent}
+  .btn-danger{border-color:#dc2626;color:#dc2626}
+  .btn-danger:hover{background:rgba(220,38,38,.12)}
+  .btn-sm{padding:5px 10px;font-size:.8rem;border-radius:8px}
+  .btn-block{width:100%}
+  .gate{min-height:75vh;display:flex;align-items:center;justify-content:center;padding:40px 16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:28px;width:100%;max-width:400px;box-shadow:var(--shadow)}
+  .card h1{font-size:1.35rem;margin-bottom:4px}
+  .card>p{color:var(--muted);font-size:.9rem;margin-bottom:16px}
+  fieldset{border:none}
+  .field{margin-bottom:14px}
+  label{display:block;font-size:.85rem;font-weight:600;color:var(--muted);margin-bottom:6px}
+  input,select,textarea{width:100%;padding:11px 13px;border-radius:9px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-family:inherit;font-size:.95rem}
+  input:focus,select:focus{outline:none;border-color:var(--accent-light)}
+  textarea{resize:vertical}
+  .err{color:#dc2626;font-size:.85rem;min-height:1.2em;margin-top:6px}
+  main{display:none;padding:26px 0 60px}
+  .stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 20px;flex:1;min-width:150px}
+  .stat .n{font-size:1.7rem;font-weight:800;color:var(--accent-light)}
+  .stat .t{font-size:.8rem;color:var(--muted)}
+  h2{font-size:1.2rem;margin-bottom:16px}
+  .role-badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.72rem;font-weight:800;font-family:var(--font-mono);text-transform:uppercase}
+  .role-owner{background:rgba(34,197,94,.2);color:var(--accent-light)}
+  .role-admin{background:rgba(59,130,246,.2);color:#60a5fa}
+  .role-moderator{background:rgba(234,179,8,.2);color:#fbbf24}
+  .role-user{background:var(--line);color:var(--muted)}
+  .list{list-style:none}
+  .list li{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px}
+  .list li .who{font-weight:800}
+  .list li .meta{font-family:var(--font-mono);font-size:.76rem;color:var(--muted);margin:2px 0 4px}
+  .list li .body{color:var(--muted);font-size:.9rem}
+  .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .empty{color:var(--muted);padding:20px;text-align:center}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:var(--panel);border:1px solid var(--accent-light);color:var(--ink);padding:12px 20px;border-radius:11px;font-size:.9rem;transition:.25s ease;z-index:200;box-shadow:var(--shadow)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<header><div class="wrap top">
+  <div class="brand"><span class="name"><b>BY KOT</b><small>админ-панель</small></span></div>
+  <div class="top-right" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <span class="whoami" id="whoami"></span>
+    <button type="button" class="btn btn-sm" id="logoutBtn">Выйти</button>
+    <a href="recipe-book-site.html" class="btn btn-sm">← На сайт</a>
+  </div>
+</div></header>
+
+<section class="gate" id="gate">
+  <div class="card">
+    <h1>Вход в админ-панель</h1>
+    <p>Введите почту и пароль аккаунта с правами администратора.</p>
+    <form id="loginForm" novalidate>
+      <div class="field"><label for="ad-email">Почта</label><input type="email" id="ad-email" autocomplete="username" placeholder="you@mail.ru"></div>
+      <div class="field"><label for="ad-pass">Пароль</label><input type="password" id="ad-pass" autocomplete="current-password" placeholder="••••••••"></div>
+      <button type="submit" class="btn btn-primary btn-block">Войти</button>
+      <div class="err" id="loginErr"></div>
+    </form>
+  </div>
+</section>
+
+<main id="app">
+  <div class="wrap">
+    <div class="stat-row" id="statRow">
+      <div class="stat"><div class="n" id="d-users">0</div><div class="t">аккаунтов</div></div>
+      <div class="stat"><div class="n" id="d-recipes">0</div><div class="t">рецептов</div></div>
+      <div class="stat"><div class="n" id="d-private">0</div><div class="t">личных</div></div>
+      <div class="stat"><div class="n" id="d-staff">0</div><div class="t">работников</div></div>
+    </div>
+
+    <div class="card" style="max-width:none;margin-bottom:18px">
+      <h2>Создать работника</h2>
+      <form id="staffForm" class="row-card" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px" novalidate>
+        <div class="field"><label for="sf-email">Почта аккаунта</label><input type="email" id="sf-email" placeholder="worker@mail.ru"></div>
+        <div class="field"><label for="sf-role">Роль</label>
+          <select id="sf-role"><option value="admin">Админ</option><option value="moderator">Модератор</option></select></div>
+        <div class="field"><label>&nbsp;</label><button type="submit" class="btn btn-primary btn-block">Создать</button></div>
+      </form>
+      <div class="err" id="staffMsg"></div>
+    </div>
+
+    <h2>Работники</h2>
+    <ul class="list" id="staffList"></ul>
+
+    <h2 style="margin-top:20px">Аккаунты</h2>
+    <ul class="list" id="usersList"></ul>
+
+    <h2 style="margin-top:20px">Рецепты</h2>
+    <ul class="list" id="recipesList"></ul>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+  var SB_URL='https://xandcwnvmuyhmpzjylcy.supabase.co';
+  var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhbmRjd252bXV5aG1wemp5bGN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3MjQ4NzYsImV4cCI6MjEwOTMwMDg3Nn0.yWBa9hiCtUwhvvqAKP4go3ZPUekAqbqSegSFkFFh-AU';
+  var AUTH_KEY='recipebook_session_token';
+  function accessToken(){try{return localStorage.getItem(AUTH_KEY)||'';}catch(e){return '';}}
+  function headers(extra){var h={'apikey':SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'};h['Authorization']='Bearer '+(accessToken()||SB_KEY);if(extra)for(var k in extra)h[k]=extra[k];return h;}
+  function api(path,opt){return fetch(SB_URL+'/rest/v1/'+path,opt).then(function(r){if(!r.ok)throw new Error('db:'+r.status);return r.status===204?null:r.json();});}
+  function auth(path,body){return fetch(SB_URL+'/auth/v1/'+path,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json','Authorization':'Bearer '+SB_KEY},body:JSON.stringify(body||{})}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error_description||j.msg||('auth:'+r.status));return j;});});}
+
+  var me=null;
+  function toast(t){var el=document.getElementById('toast');el.textContent=t;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(function(){el.classList.remove('show');},2200);}
+
+  document.getElementById('loginForm').addEventListener('submit',function(e){
+    e.preventDefault();
+    var email=document.getElementById('ad-email').value.trim(),pass=document.getElementById('ad-pass').value;
+    var err=document.getElementById('loginErr');
+    if(!email||!pass){err.textContent='Введите почту и пароль.';return;}
+    err.textContent='Проверяю…';
+    auth('token?grant_type=password',{email:email,password:pass}).then(function(res){
+      if(res.access_token){
+        localStorage.setItem(AUTH_KEY,res.access_token);
+        me={email:email,id:res.user&&res.user.id};
+        return api('staff?select=*&limit=1',{headers:headers()}).then(function(rows){
+          var mine=rows?rows[0]:null;
+          if(!mine){err.textContent='У этого аккаунта нет прав администратора.';logout(true);return;}
+          me.role=mine.role;
+          if(mine.role!=='owner'&&mine.role!=='admin'){err.textContent='Недостаточно прав (нужна роль admin/owner).';logout(true);return;}
+          enterAdmin();
+        });
+      } else { err.textContent='Неверная почта или пароль.'; }
+    }).catch(function(x){err.textContent=x&&x.message||'Ошибка входа.';});
+  });
+  function logout(clean){try{localStorage.removeItem(AUTH_KEY);}catch(e){}me=null;document.getElementById('app').style.display='none';document.getElementById('gate').style.display='flex';document.getElementById('whoami').textContent='';}
+  function enterAdmin(){document.getElementById('gate').style.display='none';document.getElementById('app').style.display='block';document.getElementById('whoami').textContent=me.email+' · '+me.role;refresh();}
+  function refresh(){loadStats();loadStaff();loadUsers();loadRecipes();}
+
+  function loadStats(){
+    Promise.all([
+      api('profiles?select=id',{headers:headers()}),
+      api('recipes?select=id',{headers:headers()}),
+      api('recipes?select=id&private=eq.true',{headers:headers()}),
+      api('staff?select=id',{headers:headers()})
+    ]).then(function(r){
+      document.getElementById('d-users').textContent=(r[0]||[]).length;
+      document.getElementById('d-recipes').textContent=(r[1]||[]).length;
+      document.getElementById('d-private').textContent=(r[2]||[]).length;
+      document.getElementById('d-staff').textContent=(r[3]||[]).length;
+    }).catch(function(){});
+  }
+
+  function loadStaff(){
+    var list=document.getElementById('staffList');
+    api('staff?select=*&order=role.asc',{headers:headers()}).then(function(rows){
+      list.innerHTML='';
+      if(!rows||!rows.length){list.innerHTML='<li class="empty">Работников пока нет.</li>';return;}
+      rows.forEach(function(s){
+        var li=document.createElement('li');
+        var w=document.createElement('div');w.className='who';w.textContent=s.email;
+        var rb=document.createElement('span');rb.className='role-badge role-'+s.role;rb.textContent=s.role;w.appendChild(document.createTextNode(' '));w.appendChild(rb);
+        li.appendChild(w);
+        if(s.role!=='owner'&&me&&me.role==='owner'){
+          var acts=document.createElement('div');acts.className='acts';
+          var del=document.createElement('button');del.type='button';del.className='btn btn-sm btn-danger';del.textContent='Удалить';
+          del.addEventListener('click',function(){if(!confirm('Удалить работника '+s.email+'?'))return;api('staff?id=eq.'+s.id,{method:'DELETE',headers:headers()}).then(function(){toast('Работник удалён');loadStaff();loadStats();}).catch(function(){toast('Ошибка');});});
+          acts.appendChild(del);li.appendChild(acts);
+        }
+        list.appendChild(li);
+      });
+    }).catch(function(){list.innerHTML='<li class="empty">Нет доступа к списку работников.</li>';});
+  }
+
+  document.getElementById('staffForm').addEventListener('submit',function(e){
+    e.preventDefault();
+    var email=document.getElementById('sf-email').value.trim(),role=document.getElementById('sf-role').value;
+    var msg=document.getElementById('staffMsg');
+    if(!email){msg.textContent='Укажите почту аккаунта.';return;}
+    // находим auth user по email через admin-функцию отсутствует — используем профили по email
+    api('profiles?select=id&email=eq.'+encodeURIComponent(email)+'&limit=1',{headers:headers()}).then(function(rows){
+      if(!rows||!rows.length){msg.textContent='Аккаунт с такой почтой не найден. Сначала он должен зарегистрироваться на сайте.';return;}
+      var uid=rows[0].id;
+      return api('staff?on_conflict=id',{method:'POST',headers:headers({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify({id:uid,email:email,role:role})}).then(function(){
+        msg.textContent='Работник создан: '+email+' ('+role+')';
+        document.getElementById('sf-email').value='';loadStaff();loadStats();
+      });
+    }).catch(function(){msg.textContent='Ошибка создания работника.';});
+  });
+
+  function loadUsers(){
+    var list=document.getElementById('usersList');
+    api('profiles?select=id,name,email&order=created_at.asc',{headers:headers()}).then(function(rows){
+      list.innerHTML='';
+      if(!rows||!rows.length){list.innerHTML='<li class="empty">Аккаунтов пока нет.</li>';return;}
+      rows.forEach(function(u){
+        var li=document.createElement('li');
+        var w=document.createElement('div');w.className='who';w.textContent=u.name||u.email;
+        var rb=document.createElement('span');rb.className='role-badge role-user';rb.textContent='пользователь';w.appendChild(document.createTextNode(' '));w.appendChild(rb);
+        var meta=document.createElement('div');meta.className='meta';meta.textContent=u.email;
+        li.appendChild(w);li.appendChild(meta);
+        var acts=document.createElement('div');acts.className='acts';
+        var del=document.createElement('button');del.type='button';del.className='btn btn-sm btn-danger';del.textContent='Удалить аккаунт';
+        del.addEventListener('click',function(){if(!confirm('Удалить аккаунт '+u.email+'?'))return;
+          Promise.all([
+            fetch(SB_URL+'/rest/v1/user_prefs?account_id=eq.'+u.id,{method:'DELETE',headers:headers()}),
+            fetch(SB_URL+'/rest/v1/recipes?owner_id=eq.'+u.id,{method:'DELETE',headers:headers()}),
+            fetch(SB_URL+'/rest/v1/recipes?owner_id=eq.'+u.id,{method:'DELETE',headers:headers()})
+          ]).then(function(){
+            return api('profiles?id=eq.'+u.id,{method:'DELETE',headers:headers()}).then(function(){toast('Аккаунт удалён');loadUsers();loadRecipes();loadStats();});
+          }).catch(function(){toast('Ошибка удаления');});
+        });
+        acts.appendChild(del);li.appendChild(acts);
+        list.appendChild(li);
+      });
+    }).catch(function(){list.innerHTML='<li class="empty">Нет доступа к списку аккаунтов.</li>';});
+  }
+
+  function loadRecipes(){
+    var list=document.getElementById('recipesList');
+    api('recipes?select=id,name,owner_id,private,status&order=created_at.desc',{headers:headers()}).then(function(rows){
+      list.innerHTML='';
+      if(!rows||!rows.length){list.innerHTML='<li class="empty">Рецептов пока нет.</li>';return;}
+      rows.forEach(function(r){
+        var li=document.createElement('li');
+        var w=document.createElement('div');w.className='who';w.textContent=r.name;
+        var meta=document.createElement('div');meta.className='meta';
+        meta.textContent=(r.private?'🔒 личный':'🌍 общий')+(r.status?(' · '+r.status):'')+' · id:'+r.id;
+        li.appendChild(w);li.appendChild(meta);
+        var acts=document.createElement('div');acts.className='acts';
+        var del=document.createElement('button');del.type='button';del.className='btn btn-sm btn-danger';del.textContent='Удалить';
+        del.addEventListener('click',function(){if(!confirm('Удалить рецепт?'))return;api('recipes?id=eq.'+r.id,{method:'DELETE',headers:headers()}).then(function(){toast('Рецепт удалён');loadRecipes();loadStats();}).catch(function(){toast('Ошибка');});});
+        acts.appendChild(del);li.appendChild(acts);
+        list.appendChild(li);
+      });
+    }).catch(function(){list.innerHTML='<li class="empty">Нет доступа к рецептам.</li>';});
+  }
+
+  document.getElementById('logoutBtn')&&document.getElementById('logoutBtn').addEventListener('click',function(){logout();});
+})();
+</script>
+</body>
+</html>
