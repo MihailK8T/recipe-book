@@ -63,14 +63,16 @@ create table if not exists public.staff (
 );
 
 -- Вспомогательная функция: роль текущего (аутентифицированного) пользователя.
+-- SECURITY DEFINER: обходит RLS staff, иначе политики staff -> is_admin() -> staff
+-- создают бесконечную рекурсию (ошибка db:500).
 create or replace function public.my_role()
-returns text language sql stable as $$
+returns text language sql stable security definer as $$
   select role from public.staff where id = auth.uid();
 $$;
 
 -- Можно ли текущему пользователю выполнять админ-действия (owner/admin).
 create or replace function public.is_admin()
-returns boolean language sql stable as $$
+returns boolean language sql stable security definer as $$
   select exists(select 1 from public.staff where id = auth.uid() and role in ('owner','admin'));
 $$;
 
