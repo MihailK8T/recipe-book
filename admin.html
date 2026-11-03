@@ -136,6 +136,8 @@
       </form>
     </div>
     <ul class="list" id="recipesList"></ul>
+
+    <div id="diagBox" style="margin-top:20px;padding:14px 16px;border:1px dashed var(--accent-light);border-radius:12px;font-family:var(--font-mono);font-size:.78rem;color:var(--muted);white-space:pre-wrap;display:none"></div>
   </div>
 </main>
 
@@ -301,17 +303,20 @@
       });
     }).catch(function(e){list.innerHTML='<li class="empty">Нет доступа к рецептам ('+(e&&e.message||'')+').</li>';});
   }
-  // Диагностика: выводим в консоль роль и результат прямых запросов, чтобы найти причину пустого списка.
+  // Диагностика: выводим на страницу результаты прямых запросов, чтобы найти причину пустого списка.
+  function dlog(t){var el=document.getElementById('diagBox');el.style.display='block';el.textContent=(el.textContent?el.textContent+'\n':'')+t;}
   function diagRecipes(){
+    var el=document.getElementById('diagBox');el.textContent='';el.style.display='block';
     var t=accessToken();
-    console.log('[diag] token?',!!t,'me=',me&&{id:me.id,role:me.role});
-    if(!t)return;
-    // 1) пробуем прочитать staff (должно пустить владельца)
-    fetch(SB_URL+'/rest/v1/staff?select=*&id=eq.'+(me&&me.id),{headers:headers()}).then(function(r){return r.json();}).then(function(j){console.log('[diag] staff(me):',j);}).catch(function(e){console.log('[diag] staff err',e.message||e);});
-    // 2) пробуем просто анонимно (anon-ключ, RLS пустит только политики — тут должно быть пусто или 403)
-    fetch(SB_URL+'/rest/v1/recipes?select=id&limit=5',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(function(r){return r.text().then(function(t){console.log('[diag] anon recipes status',r.status,t.slice(0,200));});});
-    // 3) пробуем своим токеном без фильтра
-    fetch(SB_URL+'/rest/v1/recipes?select=id,name,owner_id,private&limit=5',{headers:headers()}).then(function(r){return r.text().then(function(t){console.log('[diag] authed recipes status',r.status,t.slice(0,300));});});
+    dlog('[diag] token есть? '+(t?'да ('+t.length+' симв.)':'НЕТ!')+' · me='+(me&&me.id?'id='+me.id+' роль='+me.role:'не задан'));
+    if(!t){dlog('=> Токен не найден в localStorage. Вход не выполнен или токен стёрся.');return;}
+    dlog('[1] Проверяю staff (моя роль)…');
+    fetch(SB_URL+'/rest/v1/staff?select=*&id=eq.'+(me&&me.id),{headers:headers()}).then(function(r){return r.text();}).then(function(txt){dlog('staff status='+txt.slice(0,300));})
+      .catch(function(e){dlog('staff ОШИБКА: '+(e.message||e));});
+    dlog('[2] Рецепты анонимным ключом…');
+    fetch(SB_URL+'/rest/v1/recipes?select=id,name,owner_id,private&limit=5',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(function(r){return r.text();}).then(function(t){dlog('anon recipes status='+t.slice(0,300));});
+    dlog('[3] Рецепты моим токеном…');
+    fetch(SB_URL+'/rest/v1/recipes?select=id,name,owner_id,private&limit=5',{headers:headers()}).then(function(r){return r.text();}).then(function(t){dlog('authed recipes status='+t.slice(0,400));});
   }
 
   document.getElementById('logoutBtn')&&document.getElementById('logoutBtn').addEventListener('click',function(){logout();});
