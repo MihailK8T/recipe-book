@@ -119,7 +119,7 @@ create policy profiles_update_own on public.profiles
 drop policy if exists recipes_select_public on public.recipes;
 create policy recipes_select_public on public.recipes
   for select to authenticated
-  using (private = false or owner_id = auth.uid());
+  using (private = false or owner_id = auth.uid() or public.is_admin());
 drop policy if exists recipes_insert_own on public.recipes;
 create policy recipes_insert_own on public.recipes
   for insert to authenticated

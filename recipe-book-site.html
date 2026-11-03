@@ -558,6 +558,18 @@
     }
     return AUTH_USER;
   }
+  /* Загружаем роль текущего пользователя из staff (owner/admin/moderator/—). */
+  function loadMyRole(){
+    var tok=accessToken();if(!tok)return Promise.resolve('--');
+    return fetch(SB_URL+'/rest/v1/rpc/my_role',{method:'POST',headers:sbHeaders(),body:'{}'})
+      .then(function(r){return r.json();})
+      .then(function(res){
+        var v=(typeof res==='string')?res:(res&&res.role?res.role:'--');
+        if(v===null)v='--';
+        if(AUTH_USER)AUTH_USER.role=v;
+        return v||'--';
+      }).catch(function(){return '--';});
+  }
   /* map recipe object -> DB row. owner_id comes from the authenticated user. */
   function recToRow(r){
     var me=currentUser();
@@ -706,9 +718,14 @@
   function renderFilters(){var wrap=document.getElementById('filters');wrap.innerHTML='';var all=document.createElement('button');all.type='button';all.className='filter-btn'+(currentFilter==='all'?' active':'');all.textContent='Все';all.addEventListener('click',function(){currentFilter='all';renderBook();});wrap.appendChild(all);allCats().forEach(function(c){var b=document.createElement('button');b.type='button';b.className='filter-btn'+(currentFilter===c?' active':'');b.textContent=c;b.addEventListener('click',function(){currentFilter=c;renderBook();});wrap.appendChild(b);});}
   function fillCatSelect(){var sel=document.getElementById('r-cat');sel.innerHTML='';allCats().forEach(function(c){var o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});}
   function viewableRecipes(){return DB.recipes.filter(function(r){return !r.private;});}
+  function isOwnerOrAdmin(){
+    var me=currentUser();
+    return !!(me&&(me.role==='owner'||me.role==='admin'||me._isAdmin));
+  }
   function filtered(){
     var me=currentUser();
-    var list=DB.recipes.filter(function(r){return !r.private||(me&&r.owner===me.name);});
+    var all=isOwnerOrAdmin();
+    var list=DB.recipes.filter(function(r){return all||!r.private||(me&&r.owner===me.name);});
     if(currentFilter!=='all')list=list.filter(function(r){return r.cat===currentFilter;});
     if(currentSearch){var q=currentSearch.toLowerCase();list=list.filter(function(r){var hay=(r.name+' '+r.desc+' '+r.ingredients+' '+r.cat).toLowerCase();return hay.indexOf(q)>=0;});}
     return list.slice().sort(function(a,b){return (b.updated||b.created||0)-(a.updated||a.created||0);});
@@ -796,7 +813,7 @@
 
   function openDetail(id){
     var r=fine(id);if(!r)return;
-    if(r.private&&!isOwner(r))return;
+    if(r.private&&!isOwner(r)&&!isOwnerOrAdmin())return;
     currentShow=id;switchView('detail');renderDetail(r);
   }
   function switchView(v){
@@ -1223,6 +1240,7 @@
     document.getElementById('bookTitle').textContent='BY KOT · Рецепты, которые мурчат';
     toast('Добро пожаловать, '+name);
     rememberDevice();
+    loadMyRole().then(function(){renderAuthUI();renderBook();});
     applyPrefsFromDb(name);
   }
   /* Запоминаем устройство cookie после успешного входа: при последующих
@@ -1348,7 +1366,7 @@
       email=j.email||null;
       name=(j.user_metadata&&j.user_metadata.name)||(email?email.split('@')[0]:null);
     }catch(e){}
-    if(name||id){setAuthUser({id:id,name:name||'…',email:email});}
+    if(name||id){setAuthUser({id:id,name:name||'…',email:email});loadMyRole().then(function(){renderBook();});}
   })();
 
   renderAuthUI();renderBook();
