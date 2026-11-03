@@ -25,7 +25,7 @@ create table if not exists public.recipes (
   cat         text,
   servings    int default 2,
   time        int default 0,
-  desc        text default '',
+  description text default '',
   ingredients text default '',
   steps       text default '',
   private     boolean default false,

@@ -548,7 +548,7 @@
   /* map recipe object -> DB row. owner_id comes from the authenticated user. */
   function recToRow(r){
     var me=currentUser();
-    var row={id:r.id,name:r.name,cat:r.cat||null,servings:r.servings||2,time:r.time||0,desc:r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:r.private?true:false,photo:r.photo||null,photo_name:r.photo_name||null,photo_type:r.photo_type||null,created_at:r.created,updated_at:r.updated||r.created};
+    var row={id:r.id,name:r.name,cat:r.cat||null,servings:r.servings||2,time:r.time||0,description:r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:r.private?true:false,photo:r.photo||null,photo_name:r.photo_name||null,photo_type:r.photo_type||null,created_at:r.created,updated_at:r.updated||r.created};
     if(me&&me.id)row.owner_id=me.id; // у анонима owner_id нет — фейл в RLS корректно отклонит запись
     return row;
   }
@@ -568,7 +568,7 @@
     if(!SB_ON)return Promise.resolve(false);
     return sbFetch('recipes?select=*&order=created_at.asc',{method:'GET',headers:sbHeaders()}).then(function(rows){
       if(!rows)return false;
-      var mapped=rows.map(function(r){var o={id:r.id,name:r.name,cat:r.cat,servings:r.servings,time:r.time,desc:r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:!!r.private,owner:r.owner||'',photo:r.photo||null,photo_name:r.photo_name||null,photo_type:r.photo_type||null,created:r.created_at||r.created,updated:r.updated_at||r.updated};return o;});
+      var mapped=rows.map(function(r){var o={id:r.id,name:r.name,cat:r.cat,servings:r.servings,time:r.time,desc:r.description||r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:!!r.private,owner:r.owner||'',photo:r.photo||null,photo_name:r.photo_name||null,photo_type:r.photo_type||null,created:r.created_at||r.created,updated:r.updated_at||r.updated};return o;});
       if(mapped.length){DB.recipes=mapped;saveRecipes();}
       return true;
     }).catch(function(){return false;});
