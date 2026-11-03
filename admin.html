@@ -138,6 +138,7 @@
     <ul class="list" id="recipesList"></ul>
 
     <div id="diagBox" style="margin-top:20px;padding:14px 16px;border:1px dashed var(--accent-light);border-radius:12px;font-family:var(--font-mono);font-size:.78rem;color:var(--muted);white-space:pre-wrap;display:none"></div>
+    <div style="margin-top:10px;display:none" id="diagBtns"><button type="button" class="btn btn-sm" onclick="window.__diagAgain&&window.__diagAgain()">Повторить диагностику</button></div>
   </div>
 </main>
 
@@ -304,19 +305,34 @@
     }).catch(function(e){list.innerHTML='<li class="empty">Нет доступа к рецептам ('+(e&&e.message||'')+').</li>';});
   }
   // Диагностика: выводим на страницу результаты прямых запросов, чтобы найти причину пустого списка.
-  function dlog(t){var el=document.getElementById('diagBox');el.style.display='block';el.textContent=(el.textContent?el.textContent+'\n':'')+t;}
+  function dlog(t){var el=document.getElementById('diagBox');el.style.display='block';el.textContent=(el.textContent?el.textContent+'\n':'')+t;var b=document.getElementById('diagBtns');if(b)b.style.display='block';}
+  function dloghdr(){var el=document.getElementById('diagBox');el.textContent='';var b=document.getElementById('diagBtns');if(b)b.style.display='none';}
+  function dreq(tag,path,hdrs){
+    return new Promise(function(res){
+      var done=false,to=setTimeout(function(){if(done)return;done=true;dlog(tag+' ВРЕМЯ ИСТЕКЛО (нет ответа за 15с)');res();},15000);
+      fetch(SB_URL+'/rest/v1/'+path,{headers:hdrs}).then(function(r){return r.text();}).then(function(txt){if(done)return;done=true;clearTimeout(to);dlog(tag+' status='+txt.slice(0,400));res();})
+        .catch(function(e){if(done)return;done=true;clearTimeout(to);dlog(tag+' ОШИБКА: '+(e&&e.message||e));res();});
+    });
+  }
   function diagRecipes(){
-    var el=document.getElementById('diagBox');el.textContent='';el.style.display='block';
+    dloghdr();
     var t=accessToken();
-    dlog('[diag] token есть? '+(t?'да ('+t.length+' симв.)':'НЕТ!')+' · me='+(me&&me.id?'id='+me.id+' роль='+me.role:'не задан'));
-    if(!t){dlog('=> Токен не найден в localStorage. Вход не выполнен или токен стёрся.');return;}
-    dlog('[1] Проверяю staff (моя роль)…');
-    fetch(SB_URL+'/rest/v1/staff?select=*&id=eq.'+(me&&me.id),{headers:headers()}).then(function(r){return r.text();}).then(function(txt){dlog('staff status='+txt.slice(0,300));})
-      .catch(function(e){dlog('staff ОШИБКА: '+(e.message||e));});
-    dlog('[2] Рецепты анонимным ключом…');
-    fetch(SB_URL+'/rest/v1/recipes?select=id,name,owner_id,private&limit=5',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(function(r){return r.text();}).then(function(t){dlog('anon recipes status='+t.slice(0,300));});
-    dlog('[3] Рецепты моим токеном…');
-    fetch(SB_URL+'/rest/v1/recipes?select=id,name,owner_id,private&limit=5',{headers:headers()}).then(function(r){return r.text();}).then(function(t){dlog('authed recipes status='+t.slice(0,400));});
+    dlog('[база] token?'+(t?' да ('+t.length+')':' НЕТ')+' · me id='+(me&&me.id||'?'));
+    if(!t){dlog('Нет токена — войдите заново.');window.__diagAgain=diagRecipes;return;}
+    // читаем кэш сайта: что реально лежит в локальном хранилище
+    try{
+      var cached=JSON.parse(localStorage.getItem('recipebook_db')||'[]');
+      var cachedByKey=Object.keys(localStorage).filter(function(k){return /recipe/i.test(k);}).join(', ');
+      dlog('[кэш] recipebook_db в localStorage: '+(Array.isArray(cached)?cached.length+' шт':'?')+' · ключи: '+(cachedByKey||'нет'));
+    }catch(e){dlog('[кэш] не прочитался: '+e.message);}
+    dlog('[поочерёдно запрашиваю…]');
+    var uid=(me&&me.id||'');
+    dreq('[1] staff?id=eq.'+uid, 'staff?select=*&id=eq.'+uid, headers());
+    dreq('[2] anon recipes', 'recipes?select=id,name,owner_id,private&limit=5', {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY});
+    dreq('[3] authed recipes', 'recipes?select=id,name,owner_id,private&limit=5', headers()).then(function(){
+      dlog('[готово] если выше статусов 200 и данные — значит дело в другом месте; если 401/403 — в RLS/токене.');
+    });
+    window.__diagAgain=diagRecipes;
   }
 
   document.getElementById('logoutBtn')&&document.getElementById('logoutBtn').addEventListener('click',function(){logout();});
