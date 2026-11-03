@@ -354,24 +354,13 @@
         <div class="auth-head">
           <div class="auth-ico" aria-hidden="true">🍳</div>
           <h2>Добро пожаловать</h2>
-          <p>Войдите, чтобы добавлять рецепты и копировать их в чаты.</p>
-        </div>
-        <div class="auth-tabs" role="tablist" aria-label="Вход и регистрация">
-          <button class="authtab active" data-at="login" aria-selected="true">Вход</button>
-          <button class="authtab" data-at="register" aria-selected="false">Регистрация</button>
+          <p>Войдите, чтобы добавлять рецепты и копировать их в чаты. Аккаунты создаёт администратор.</p>
         </div>
         <form class="auth-form active" id="loginForm" novalidate>
           <div class="field"><label for="li-name">Почта</label><input type="email" id="li-name" autocomplete="username" required placeholder="you@mail.ru"></div>
           <div class="field"><label for="li-pass">Пароль</label><input type="password" id="li-pass" autocomplete="current-password" required placeholder="••••••••"></div>
           <button type="submit" class="btn btn-primary btn-block">Войти</button>
           <p class="modal-msg" id="loginMsg" style="margin-top:10px" aria-live="polite"></p>
-        </form>
-        <form class="auth-form" id="registerForm" novalidate>
-          <div class="field"><label for="rg-name">Имя пользователя</label><input type="text" id="rg-name" autocomplete="username" required placeholder="Как вас зовут?"></div>
-          <div class="field"><label for="rg-email">Почта</label><input type="email" id="rg-email" autocomplete="email" required placeholder="you@mail.ru"></div>
-          <div class="field"><label for="rg-pass">Пароль</label><input type="password" id="rg-pass" autocomplete="new-password" required placeholder="Минимум 4 символа"></div>
-          <button type="submit" class="btn btn-primary btn-block">Создать аккаунт</button>
-          <p class="modal-msg" id="registerMsg" style="margin-top:10px" aria-live="polite"></p>
         </form>
       </div>
     </div>
@@ -515,7 +504,15 @@
   var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhbmRjd252bXV5aG1wemp5bGN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3MjQ4NzYsImV4cCI6MjEwOTMwMDg3Nn0.yWBa9hiCtUwhvvqAKP4go3ZPUekAqbqSegSFkFFh-AU';
   var SB_ON=true; // DB configured
   var AUTH_KEY='recipebook_session_token';
-  function accessToken(){try{return storage?storage.getItem(AUTH_KEY):'';}catch(e){return '';}}
+  function accessToken(){
+    try{var t=storage?storage.getItem(AUTH_KEY):'';if(t)return t;}catch(e){}
+    // запоминание устройства: токен дублируется в cookie sb_t
+    try{
+      var m=document.cookie.match(/(?:^|;\s*)sb_t=([^;]+)/);
+      if(m&&m[1]){var v=decodeURIComponent(m[1]);if(storage)storage.setItem(AUTH_KEY,v);return v;}
+    }catch(e){}
+    return '';
+  }
   function sbHeaders(extra){
     var tok=accessToken();
     var h={'apikey':SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
@@ -870,15 +867,8 @@
   function metaRow(k,v){var d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;gap:10px';var kk=document.createElement('span');kk.style.color='var(--muted)';kk.textContent=k;var vv=document.createElement('b');vv.textContent=v;d.appendChild(kk);d.appendChild(vv);return d;}
 
   /* modal */
-  function showApprovalNotice(){
-    toast('Ваш аккаунт ещё не одобрен администратором. Публиковать и копировать рецепты можно после одобрения; сейчас доступен только просмотр.');
-  }
   function openModal(){
     if(!currentUser()){showLogin();return;}
-    if(!currentUserApproved()){
-      showApprovalNotice();
-      return;
-    }
     editingId=null;pendingPhoto=null;
     document.getElementById('recipeForm').reset();
     document.getElementById('r-private').checked=true;
@@ -1199,7 +1189,6 @@
   }
   function copyRecipe(id){
     var r=fine(id);if(!r)return;
-    if(!currentUserApproved()){showApprovalNotice();return;}
     var text=buildCopyText(r);
     function ok(){toast('Рецепт скопирован — вставьте в чат');}
     function no(){toast('Не удалось скопировать. Выделите текст вручную.');}
@@ -1210,32 +1199,6 @@
 
   /* auth */
   function showLogin(){switchView('login');document.getElementById('bookTitle').textContent='Аккаунт';applyTheme('light');}
-  var at='login';
-  document.querySelectorAll('.authtab').forEach(function(t){t.addEventListener('click',function(){
-    document.querySelectorAll('.authtab').forEach(function(x){x.classList.remove('active');x.setAttribute('aria-selected','false');});
-    t.classList.add('active');t.setAttribute('aria-selected','true');at=t.dataset.at;
-    document.getElementById('loginForm').classList.toggle('active',at==='login');
-    document.getElementById('registerForm').classList.toggle('active',at==='register');
-  });});
-  document.getElementById('registerForm').addEventListener('submit',function(e){e.preventDefault();
-    var name=document.getElementById('rg-name').value.trim(),email=document.getElementById('rg-email').value.trim(),pass=document.getElementById('rg-pass').value;
-    var msg=document.getElementById('registerMsg');msg.className='modal-msg';
-    if(!name||!email||!pass){msg.textContent='Заполните все поля.';msg.className='modal-msg error';return;}
-    if(pass.length<6){msg.textContent='Пароль — минимум 6 символов.';msg.className='modal-msg error';return;}
-    msg.textContent='Создаём аккаунт…';
-    sbSignup(email,pass,name).then(function(res){
-      if(res.access_token){
-        if(storage)storage.setItem(AUTH_KEY,res.access_token);
-        setAuthUser({id:res.user&&res.user.id,name:name,email:email});
-        document.getElementById('registerForm').reset();
-        afterLogin(name);
-      } else if(res.user && !res.access_token){
-        msg.textContent='Почта подтверждается. Проверьте письмо и войдите.';msg.className='modal-msg';
-      } else {
-        msg.textContent='Не удалось зарегистрироваться. Попробуйте другую почту.';msg.className='modal-msg error';
-      }
-    }).catch(function(err){msg.textContent=err&&err.message||'Ошибка регистрации.';msg.className='modal-msg error';});
-  });
   document.getElementById('loginForm').addEventListener('submit',function(e){e.preventDefault();
     var email=document.getElementById('li-name').value.trim(),pass=document.getElementById('li-pass').value;
     var msg=document.getElementById('loginMsg');msg.className='modal-msg';
@@ -1259,24 +1222,18 @@
     applyTheme(defaultTheme);
     document.getElementById('bookTitle').textContent='BY KOT · Рецепты, которые мурчат';
     toast('Добро пожаловать, '+name);
-    loadApprovalStatus().then(function(){renderAuthUI();renderBook();});
+    rememberDevice();
     applyPrefsFromDb(name);
   }
-  /* Запрашиваем approved у текущего пользователя из profiles. */
-  function loadApprovalStatus(){
-    var me=currentUser();if(!me||!me.id||!accessToken())return Promise.resolve(false);
-    return sbFetch('profiles?select=approved,role,email&id=eq.'+me.id+'&limit=1',{headers:sbHeaders()})
-      .then(function(rows){
-        var p=(rows&&rows[0])||null;
-        if(p){me.approved=!!p.approved;}
-        else {me.approved=false;}
-        return me.approved;
-      }).catch(function(){handleIfNotApproved();return false;});
-  }
-  function currentUserApproved(){
-    var me=currentUser();
-    if(me&&me.role==='owner')return true;
-    return !!(me&&me.approved);
+  /* Запоминаем устройство cookie после успешного входа: при последующих
+     посещениях с этого устройства вход сохраняется (токен в cookie). */
+  function rememberDevice(){
+    var t=accessToken();if(!t)return;
+    try{
+      document.cookie='sb_remember=1; path=/; max-age='+(60*60*24*30);
+      document.cookie='sb_t='+encodeURIComponent(t)+'; path=/; max-age='+(60*60*24*30);
+      AUTH_USER=currentUser();
+    }catch(e){}
   }
   function applyPrefsFromDb(accName){
     loadPrefsFromDb(accName).then(function(p){
@@ -1293,6 +1250,8 @@
     var tok=accessToken();
     sbSignout().then(function(){});
     if(storage){storage.removeItem(SESSION_KEY);storage.removeItem('recipebook_me_email');storage.removeItem(AUTH_KEY);}
+    // стираем cookie запоминания устройства
+    try{document.cookie='sb_t=; path=/; max-age=0';document.cookie='sb_remember=; path=/; max-age=0';}catch(e){}
     setAuthUser(null);AUTH_USER=null;
     renderAuthUI();renderBook();closeDD();switchView('book');applyTheme(defaultTheme);document.getElementById('bookTitle').textContent='BY KOT · Рецепты, которые мурчат';toast('Вы вышли');
   }

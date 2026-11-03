@@ -115,6 +115,26 @@
     <ul class="list" id="usersList"></ul>
 
     <h2 style="margin-top:20px">Рецепты</h2>
+    <div class="card" style="max-width:none;margin-bottom:18px">
+      <h2 style="margin-bottom:10px">Добавить рецепт</h2>
+      <form id="adminRecipeForm" novalidate>
+        <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label for="ar-name">Название *</label><input type="text" id="ar-name" placeholder="Борщ по-домашнему"></div>
+          <div><label for="ar-cat">Категория</label><input type="text" id="ar-cat" placeholder="Супы"></div>
+        </div>
+        <div class="field"><label for="ar-desc">Описание</label><input type="text" id="ar-desc" placeholder="Чем особенное блюдо?"></div>
+        <div class="field"><label for="ar-ing">Продукты (по одному на строку)</label><textarea id="ar-ing" rows="3" placeholder="Свекла — 2 шт&#10;Картофель — 3 шт"></textarea></div>
+        <div class="field"><label for="ar-steps">Как готовить (по шагам)</label><textarea id="ar-steps" rows="3" placeholder="Сварите бульон.&#10;Добавьте овощи."></textarea></div>
+        <div class="field" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end">
+          <div><label for="ar-time">Время, мин</label><input type="number" id="ar-time" value="30" min="0"></div>
+          <div><label for="ar-serv">Порций</label><input type="number" id="ar-serv" value="4" min="1"></div>
+          <div><label for="ar-private">Приватность</label>
+            <select id="ar-private"><option value="false">Общий</option><option value="true">Личный</option></select></div>
+          <div><label>&nbsp;</label><button type="submit" class="btn btn-primary">Создать</button></div>
+        </div>
+        <div class="err" id="adminRecipeMsg"></div>
+      </form>
+    </div>
     <ul class="list" id="recipesList"></ul>
   </div>
 </main>
@@ -210,31 +230,42 @@
     }).catch(function(){msg.textContent='Ошибка создания работника.';});
   });
 
-  function setApproved(id, val){
-    return api('profiles?id=eq.'+id,{method:'PATCH',headers:headers(),body:JSON.stringify({approved:val})});
-  }
+  document.getElementById('adminRecipeForm').addEventListener('submit',function(e){
+    e.preventDefault();
+    var name=document.getElementById('ar-name').value.trim();
+    var msg=document.getElementById('adminRecipeMsg');
+    if(!name){msg.textContent='Укажите название рецепта.';return;}
+    var rec={
+      id:'r_'+Date.now()+'_'+Math.floor(Math.random()*1e6),
+      owner_id:me.id,
+      name:name,
+      cat:document.getElementById('ar-cat').value.trim()||null,
+      description:document.getElementById('ar-desc').value.trim()||'',
+      ingredients:document.getElementById('ar-ing').value.trim()||'',
+      steps:document.getElementById('ar-steps').value.trim()||'',
+      time:(parseInt(document.getElementById('ar-time').value,10)||0),
+      servings:(parseInt(document.getElementById('ar-serv').value,10)||2),
+      private:document.getElementById('ar-private').value==='true'
+    };
+    api('recipes?on_conflict=id',{method:'POST',headers:headers({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(rec)}).then(function(){
+      msg.textContent='Рецепт создан: '+name;
+      ['ar-name','ar-cat','ar-desc','ar-ing','ar-steps'].forEach(function(i){document.getElementById(i).value='';});
+      loadRecipes();loadStats();
+    }).catch(function(){msg.textContent='Ошибка создания рецепта.';});
+  });
+
   function loadUsers(){
     var list=document.getElementById('usersList');
-    api('profiles?select=id,name,email,approved&order=created_at.asc',{headers:headers()}).then(function(rows){
+    api('profiles?select=id,name,email&order=created_at.asc',{headers:headers()}).then(function(rows){
       list.innerHTML='';
       if(!rows||!rows.length){list.innerHTML='<li class="empty">Аккаунтов пока нет.</li>';return;}
       rows.forEach(function(u){
         var li=document.createElement('li');
         var w=document.createElement('div');w.className='who';w.textContent=u.name||u.email;
-        var st=u.approved?'<span class="role-badge role-owner">одобрен</span>':'<span class="role-badge role-moderator">на модерации</span>';
-        w.insertAdjacentHTML('beforeend',' '+st);
+        var rb=document.createElement('span');rb.className='role-badge role-user';rb.textContent='пользователь';w.appendChild(document.createTextNode(' '));w.appendChild(rb);
         var meta=document.createElement('div');meta.className='meta';meta.textContent=u.email;
         li.appendChild(w);li.appendChild(meta);
         var acts=document.createElement('div');acts.className='acts';
-        if(!u.approved){
-          var ok=document.createElement('button');ok.type='button';ok.className='btn btn-sm btn-primary';ok.textContent='Одобрить';
-          ok.addEventListener('click',function(){setApproved(u.id,true).then(function(){toast('Аккаунт одобрен');loadUsers();loadStats();}).catch(function(){toast('Ошибка');});});
-          acts.appendChild(ok);
-        } else {
-          var rev=document.createElement('button');rev.type='button';rev.className='btn btn-sm btn-danger';rev.textContent='Отменить';
-          rev.addEventListener('click',function(){setApproved(u.id,false).then(function(){toast('Модерация включена');loadUsers();loadStats();}).catch(function(){toast('Ошибка');});});
-          acts.appendChild(rev);
-        }
         var del=document.createElement('button');del.type='button';del.className='btn btn-sm btn-danger';del.textContent='Удалить аккаунт';
         del.addEventListener('click',function(){if(!confirm('Удалить аккаунт '+u.email+'?'))return;
           Promise.all([

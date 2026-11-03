@@ -12,7 +12,6 @@ create table if not exists public.profiles (
   id         uuid primary key references auth.users (id) on delete cascade,
   name       text not null,
   email      text not null,
-  approved   boolean default false,     -- одобрен ли админом (false = на модерации)
   created_at timestamptz default now()
 );
 
@@ -80,10 +79,8 @@ $$;
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer as $$
 begin
-  -- Новый пользователь создаётся на модерации (approved=false), пока админ
-  -- не одобрит. Владельцы/сотрудники (из staff) одобряются сразу через add-owner/скрипт.
-  insert into public.profiles (id, name, email, approved)
-  values (new.id, coalesce(new.raw_user_meta_data->>'name', split_part(new.email,'@',1)), new.email, false)
+  insert into public.profiles (id, name, email)
+  values (new.id, coalesce(new.raw_user_meta_data->>'name', split_part(new.email,'@',1)), new.email)
   on conflict (id) do nothing;
   insert into public.user_prefs (account_id)
   values (new.id)
@@ -104,7 +101,7 @@ alter table public.recipes    enable row level security;
 alter table public.user_prefs enable row level security;
 
 -- PROFILES: пользователь видит и обновляет свой профиль;
--- админ (owner/admin) видит все профили и может менять approved.
+-- админ (owner/admin) видит все профили.
 drop policy if exists profiles_select_own on public.profiles;
 create policy profiles_select_own on public.profiles
   for select to authenticated
@@ -113,44 +110,30 @@ drop policy if exists profiles_update_own on public.profiles;
 create policy profiles_update_own on public.profiles
   for update to authenticated
   using (auth.uid() = id or public.is_admin())
-  with check (
-    (auth.uid() = id and approved = true)   -- юзер может править только себя (не меняя approved)
-    or
-    public.is_admin()                        -- админ может менять anything (в т.ч. approved)
-  );
+  with check (auth.uid() = id or public.is_admin());
 
 -- RECIPES:
---  * читать можно публичные (любой аутентифицированный) + свои (private) — ТОЛЬКО если одобрен,
---    иначе только просмотр публичных;
---  * создавать/менять/удалять свои — ТОЛЬКО если профиль одобрен (approved=true);
---  * админ может удалять любые рецепты (для модерации).
+--  * читать можно публичные (любой аутентифицированный) + свои (private);
+--  * создавать/менять/удалять свои;
+--  * админ может удалять любые рецепты.
 drop policy if exists recipes_select_public on public.recipes;
 create policy recipes_select_public on public.recipes
   for select to authenticated
-  using (
-    private = false
-    or (owner_id = auth.uid() and exists(select 1 from public.profiles p where p.id = auth.uid() and p.approved = true))
-  );
+  using (private = false or owner_id = auth.uid());
 drop policy if exists recipes_insert_own on public.recipes;
 create policy recipes_insert_own on public.recipes
   for insert to authenticated
-  with check (
-    owner_id = auth.uid()
-    and exists(select 1 from public.profiles p where p.id = auth.uid() and p.approved = true)
-  );
+  with check (owner_id = auth.uid());
 drop policy if exists recipes_update_own on public.recipes;
 create policy recipes_update_own on public.recipes
   for update to authenticated
   using (owner_id = auth.uid())
-  with check (
-    owner_id = auth.uid()
-    and exists(select 1 from public.profiles p where p.id = auth.uid() and p.approved = true)
-  );
+  with check (owner_id = auth.uid());
 drop policy if exists recipes_delete_own on public.recipes;
 create policy recipes_delete_own on public.recipes
   for delete to authenticated
   using (owner_id = auth.uid());
--- Админ удаляет любой рецепт (модерация публикаций).
+-- Админ удаляет любой рецепт.
 drop policy if exists recipes_delete_admin on public.recipes;
 create policy recipes_delete_admin on public.recipes
   for delete to authenticated

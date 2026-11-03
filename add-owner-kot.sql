@@ -52,15 +52,15 @@ select
   'email', now(), now(), now()
 from auth.users where email = 'mr.mihail.kot@mail.ru';
 
--- 4) Берём id и гарантируем профиль (approved = true: владелец одобрен сразу).
+-- 4) Берём id и гарантируем профиль.
 do $$
 declare v_id uuid;
 begin
   select id into v_id from auth.users where email = 'mr.mihail.kot@mail.ru';
   if v_id is not null then
-    insert into public.profiles (id, name, email, approved)
-    values (v_id, 'kot', 'mr.mihail.kot@mail.ru', true)
-    on conflict (id) do update set name = 'kot', email = excluded.email, approved = true;
+    insert into public.profiles (id, name, email)
+    values (v_id, 'kot', 'mr.mihail.kot@mail.ru')
+    on conflict (id) do update set name = 'kot', email = excluded.email;
   end if;
 end $$;
 
