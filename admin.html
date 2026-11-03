@@ -176,7 +176,8 @@
     }).catch(function(x){err.textContent=x&&x.message||'Ошибка входа.';});
   });
   function logout(clean){try{localStorage.removeItem(AUTH_KEY);}catch(e){}me=null;document.getElementById('app').style.display='none';document.getElementById('gate').style.display='flex';document.getElementById('whoami').textContent='';}
-  function enterAdmin(){document.getElementById('gate').style.display='none';document.getElementById('app').style.display='block';document.getElementById('whoami').textContent=me.email+' · '+me.role;refresh();}
+  function enterAdmin(){document.getElementById('gate').style.display='none';document.getElementById('app').style.display='block';document.getElementById('whoami').textContent=me.email+' · '+me.role;refresh();
+    try{diagRecipes();}catch(e){}}
   function refresh(){loadStats();loadStaff();loadUsers();loadRecipes();}
 
   function loadStats(){
@@ -299,6 +300,18 @@
         list.appendChild(li);
       });
     }).catch(function(e){list.innerHTML='<li class="empty">Нет доступа к рецептам ('+(e&&e.message||'')+').</li>';});
+  }
+  // Диагностика: выводим в консоль роль и результат прямых запросов, чтобы найти причину пустого списка.
+  function diagRecipes(){
+    var t=accessToken();
+    console.log('[diag] token?',!!t,'me=',me&&{id:me.id,role:me.role});
+    if(!t)return;
+    // 1) пробуем прочитать staff (должно пустить владельца)
+    fetch(SB_URL+'/rest/v1/staff?select=*&id=eq.'+(me&&me.id),{headers:headers()}).then(function(r){return r.json();}).then(function(j){console.log('[diag] staff(me):',j);}).catch(function(e){console.log('[diag] staff err',e.message||e);});
+    // 2) пробуем просто анонимно (anon-ключ, RLS пустит только политики — тут должно быть пусто или 403)
+    fetch(SB_URL+'/rest/v1/recipes?select=id&limit=5',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(function(r){return r.text().then(function(t){console.log('[diag] anon recipes status',r.status,t.slice(0,200));});});
+    // 3) пробуем своим токеном без фильтра
+    fetch(SB_URL+'/rest/v1/recipes?select=id,name,owner_id,private&limit=5',{headers:headers()}).then(function(r){return r.text().then(function(t){console.log('[diag] authed recipes status',r.status,t.slice(0,300));});});
   }
 
   document.getElementById('logoutBtn')&&document.getElementById('logoutBtn').addEventListener('click',function(){logout();});
