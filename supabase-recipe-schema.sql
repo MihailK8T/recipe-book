@@ -12,6 +12,7 @@ create table if not exists public.profiles (
   id         uuid primary key references auth.users (id) on delete cascade,
   name       text not null,
   email      text not null,
+  avatar     text,                            -- data URL аватара пользователя
   created_at timestamptz default now()
 );
 

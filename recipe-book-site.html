@@ -35,7 +35,6 @@
   /* background themes */
   html{ --af: none; --af-size:auto; }
   html.af-bg{ --af: none; --af-size:auto; }
-  html.af-clean{ --bg2:#eef2ef; --af: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30'><circle cx='3' cy='3' r='3' fill='%23808080' fill-opacity='.05'/></svg>"); }
   html.af-wood{ --bg2:color-mix(in srgb, var(--bg) 90%, #b98d5c); --af: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='26' height='26'><path d='M0 13h26M13 0v26' stroke='%23907040' stroke-opacity='.16'/></svg>"); }
   html.af-bricks{ --bg2:color-mix(in srgb, var(--bg) 94%, #7a5f4d); --af: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='30' height='15'><rect width='30' height='15' fill='none'/><path d='M15 0h1v15h-1zM0 7.5h30' stroke='%236b6b6b' stroke-opacity='.25'/></svg>"); }
   html.af-plaid{ --af: repeating-linear-gradient(45deg, rgba(120,120,120,.08) 0 16px, transparent 16px 32px); }
@@ -300,6 +299,7 @@
           <button type="button" class="dd-link" id="ddAdd">+ Новый рецепт</button>
           <button type="button" class="dd-link" id="ddMine">Мои рецепты</button>
           <button type="button" class="dd-link" id="ddCats">Категории</button>
+          <button type="button" class="dd-link" id="ddSettings">Настройки аккаунта</button>
           <button type="button" class="dd-link" id="ddLogout">Выйти</button>
         </div>
       </div>
@@ -345,6 +345,20 @@
       </div>
     </div>
     <article class="detail" id="detailContent"></article>
+  </section>
+
+  <section id="authorView" style="display:none">
+    <div class="book-toolbar">
+      <button class="back" id="authorBackBtn" type="button">← Назад</button>
+    </div>
+    <div class="panel" id="authorHeader" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:18px">
+      <div id="authorAvatar" style="width:72px;height:72px;border-radius:50%;background:var(--accent-bg);color:var(--accent-light,var(--accent-strong));display:flex;align-items:center;justify-content:center;font-size:2rem;overflow:hidden;flex:none"></div>
+      <div>
+        <h1 id="authorName" style="font-size:1.5rem;font-weight:900;margin:0"></h1>
+        <p id="authorCount" style="color:var(--muted);margin:4px 0 0"></p>
+      </div>
+    </div>
+    <div id="authorRecipes"></div>
   </section>
 
   <section id="loginView" style="display:none">
@@ -459,6 +473,32 @@
   </form>
 </div>
 
+<!-- ACCOUNT SETTINGS MODAL -->
+<div class="overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+  <form class="modal" id="settingsForm" novalidate>
+    <div class="modal-head">
+      <h2 id="settingsTitle">Настройки аккаунта</h2>
+      <button type="button" class="x-btn" id="settingsClose" aria-label="Закрыть">×</button>
+    </div>
+    <div class="field">
+      <label>Аватар</label>
+      <div class="photo-box" id="setAvatarBox" role="button" tabindex="0" aria-label="Загрузить аватар">
+        <div class="ico" aria-hidden="true">👤</div>
+        <div class="st">Нажмите, чтобы выбрать фото профиля<small>JPG/PNG · до 2 МБ</small></div>
+      </div>
+      <input type="file" id="set-avatar" accept="image/*" hidden aria-label="Выбрать файл аватара">
+      <div class="photo-preview" id="setAvatarPreview" style="display:none"><button type="button" class="clear" id="setAvatarClear" aria-label="Убрать аватар">×</button></div>
+    </div>
+    <div class="field"><label for="set-name">Имя пользователя</label><input type="text" id="set-name" autocomplete="username" required></div>
+    <div class="field"><label for="set-email">Почта</label><input type="email" id="set-email" autocomplete="email" required></div>
+    <div class="field"><label for="set-pass">Новый пароль (оставьте пустым, если не менять)</label><input type="password" id="set-pass" autocomplete="new-password" placeholder="••••••••"></div>
+    <div class="modal-actions">
+      <span class="modal-msg" id="settingsMsg" aria-live="polite"></span>
+      <button type="submit" class="btn btn-primary">Сохранить</button>
+    </div>
+  </form>
+</div>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <footer style="text-align:center;padding:24px 0 34px;color:var(--muted);font-size:.85rem;border-top:1px solid var(--line);margin-top:10px">
@@ -475,7 +515,7 @@
   var DB={recipes:loadJSON(REC_KEY,[]), users:loadJSON(USERS_KEY,[])};
   var CATS=['Завтрак','Супы','Основное','Выпечка','Салаты','Десерты','Напитки'];
   var customCats=loadJSON(CATS_KEY,[]);
-  var BGS=[{id:'bg',name:'Стандарт'},{id:'clean',name:'Чистый'},{id:'wood',name:'Дерево'},{id:'bricks',name:'Кирпич'},{id:'plaid',name:'Клетка'},{id:'dots',name:'Точки'}];
+  var BGS=[{id:'bg',name:'Стандарт'},{id:'wood',name:'Дерево'},{id:'bricks',name:'Кирпич'},{id:'plaid',name:'Клетка'},{id:'dots',name:'Точки'}];
   function allCats(){return CATS.concat(customCats);}
   function saveCats(){saveJSON(CATS_KEY,customCats);}
   function addCat(name){
@@ -696,7 +736,12 @@
   var savedAccent=null;
   try{savedAccent=storage?storage.getItem(ACCENT_KEY):null;}catch(e){}
   applyAccent(savedAccent||'t3');
-  function applyBg(id){root.classList.remove('af-bg','af-clean','af-wood','af-bricks','af-plaid','af-dots');root.classList.add('af-'+id);document.querySelectorAll('.dd-bg-btn').forEach(function(b){b.classList.toggle('active',b.dataset.bg===id);});}
+  function applyBg(id){
+    if(id==='clean')id='bg'; // старый фон «Чистый» удалён — заменяем на стандартный
+    root.classList.remove('af-bg','af-wood','af-bricks','af-plaid','af-dots');
+    root.classList.add('af-'+id);
+    document.querySelectorAll('.dd-bg-btn').forEach(function(b){b.classList.toggle('active',b.dataset.bg===id);});
+  }
   function buildBgs(){var w=document.getElementById('ddBgs');w.innerHTML='';BGS.forEach(function(b){var e=document.createElement('button');e.type='button';e.className='dd-bg-btn';e.dataset.bg=b.id;e.textContent=b.name;e.addEventListener('click',function(){applyBg(b.id);if(storage){try{storage.setItem(BG_KEY,b.id);}catch(x){}}syncPrefs();});w.appendChild(e);});}
   var savedBg=null;try{savedBg=storage?storage.getItem(BG_KEY):null;}catch(e){}
   applyBg(savedBg||'bg');buildBgs();
@@ -743,11 +788,21 @@
     var banner=document.getElementById('guestBanner');
     var pbtn=document.getElementById('profileBtn');
     var plbl=document.getElementById('profileLabel');
+    var chip=pbtn.querySelector('.avatar-chip');
     if(me){
       banner.style.display='none';
       if(plbl)plbl.textContent=me.name; else pbtn.textContent=me.name;
       document.getElementById('ddUser').textContent='Вы вошли: '+me.name;
       document.getElementById('ddLogout').style.display='block';
+      if(chip){
+        // заменяем SVG-иконку реальным аватаром, если он есть
+        if(me.avatar){
+          var oldImg=chip.querySelector('img');
+          if(!oldImg){oldImg=document.createElement('img');oldImg.alt='Аватар';oldImg.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:50%';}
+          oldImg.src=me.avatar;
+          chip.innerHTML='';chip.appendChild(oldImg);chip.style.background='transparent';
+        }
+      }
     }else{
       banner.style.display='';
       if(plbl)plbl.textContent='Войти'; else pbtn.textContent='Войти';
@@ -780,7 +835,7 @@
     tags.appendChild(pr);
     if(r.cat){var c=document.createElement('span');c.className='pill';c.textContent=r.cat;tags.appendChild(c);}
     if(r.status){var stv=document.createElement('span');stv.className='pill';stv.style.cssText='border-color:var(--accent-strong);color:var(--accent-light,var(--accent-strong))';stv.textContent='✔ '+r.status;tags.appendChild(stv);}
-    if(r.owner){var o=document.createElement('span');o.className='pill';o.textContent='@'+r.owner;tags.appendChild(o);}
+    if(r.owner){var o=document.createElement('button');o.type='button';o.className='pill';o.style.cssText='cursor:pointer;border-color:var(--accent-strong);color:var(--accent-light,var(--accent-strong))';o.innerHTML='👤 @'+escapeHtml(r.owner);o.addEventListener('click',function(ev){ev.stopPropagation();openAuthorPage(r.owner);});tags.appendChild(o);}
     body.appendChild(h);body.appendChild(tags);
     if(r.desc){var d=document.createElement('p');d.style.cssText='color:var(--muted);font-size:.88rem';d.textContent=r.desc;body.appendChild(d);}
     var meta=document.createElement('div');meta.className='meta';
@@ -793,6 +848,7 @@
     card.addEventListener('click',function(){openDetail(r.id);});
     return card;
   }
+  function escapeHtml(t){if(t==null)return '';return String(t).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function span(t){var s=document.createElement('span');s.textContent=t;return s;}
 
   function photoSrc(r){
@@ -821,6 +877,55 @@
     document.getElementById('bookView').style.display=v==='book'?'':'none';
     document.getElementById('detailView').style.display=v==='detail'?'':'none';
     document.getElementById('loginView').style.display=v==='login'?'':'none';
+    var av=document.getElementById('authorView');if(av)av.style.display=v==='author'?'':'none';
+  }
+  function openAuthorPage(ownerName){
+    if(!ownerName)return;
+    // Загружаем профиль автора по name из profiles (RLS пускает чтение всех profiles)
+    var loaded=false;
+    var avatar='',realName=ownerName;
+    var fetchProfile=(typeof sbFetch==='function');
+    if(fetchProfile){
+      sbFetch('profiles?select=name,avatar&name=eq.'+encodeURIComponent(ownerName)+'&limit=1',{headers:sbHeaders()})
+        .then(function(rows){
+          var p=(rows&&rows[0])||null;
+          if(p){avatar=p.avatar||'';if(p.name)realName=p.name;}
+          renderAuthorPage(ownerName,realName,avatar);
+        }).catch(function(){renderAuthorPage(ownerName,realName,avatar);});
+    }else{
+      renderAuthorPage(ownerName,realName,avatar);
+    }
+  }
+  function renderAuthorPage(ownerName,realName,avatar){
+    currentShow=null;switchView('author');
+    var avBox=document.getElementById('authorAvatar');
+    avBox.innerHTML='';
+    if(avatar){var aim=document.createElement('img');aim.src=avatar;aim.alt=realName;aim.style.cssText='width:100%;height:100%;object-fit:cover;display:block';avBox.appendChild(aim);}
+    else{avBox.textContent=escapeHtml((realName||'?').charAt(0).toUpperCase());}
+    document.getElementById('authorName').textContent=realName;
+    var mine=(function(){var me=currentUser();return me?me.name:null;})();
+    // Рецепты этого автора: свои видны всегда, чужие приватные — только владельцу/админу
+    var list=DB.recipes.filter(function(r){
+      if(r.owner!==ownerName)return false;
+      if(!r.private)return true;
+      return mine===ownerName||isOwnerOrAdmin();
+    });
+    document.getElementById('authorCount').textContent=list.length+' рецепт(ов)';
+    var box=document.getElementById('authorRecipes');box.innerHTML='';
+    // группируем по категориям
+    var byCat={};
+    list.forEach(function(r){var k=r.cat||'Без категории';(byCat[k]=byCat[k]||[]).push(r);});
+    var keys=Object.keys(byCat).sort();
+    if(!keys.length){box.appendChild(emptyState('У этого пользователя пока нет рецептов.'));return;}
+    keys.forEach(function(k){
+      var sec=document.createElement('div');sec.style.cssText='margin-bottom:22px';
+      var hh=document.createElement('h3');hh.style.cssText='font-weight:800;font-size:1.15rem;margin:0 0 10px';
+      hh.textContent=k+' ('+byCat[k].length+')';
+      sec.appendChild(hh);
+      var grid=document.createElement('div');grid.className='grid';
+      byCat[k].forEach(function(r){grid.appendChild(cardFor(r));});
+      sec.appendChild(grid);box.appendChild(sec);
+    });
   }
   function renderDetail(r){
     var c=document.getElementById('detailContent');c.innerHTML='';
@@ -837,8 +942,12 @@
     var priv=document.createElement('div');priv.className='panel';
     var pt=document.createElement('div');pt.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap';
     var tl=document.createElement('span');tl.style.cssText='font-weight:700;font-size:.95rem';tl.textContent=r.private?'🔒 Личный рецепт':'🌍 Общий (виден всем)';
-    var owner=document.createElement('span');owner.className='pill';owner.textContent='@'+(r.owner||'—');
-    pt.appendChild(tl);pt.appendChild(owner);priv.appendChild(pt);side.appendChild(priv);
+    var ownerLink=document.createElement('button');
+    ownerLink.type='button';
+    ownerLink.style.cssText='font-weight:700;font-size:.9rem;background:var(--accent-bg);border:1px solid var(--line);color:var(--accent-light,var(--accent-strong));border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:7px';
+    ownerLink.innerHTML='👤 @'+(r.owner||'—');
+    ownerLink.addEventListener('click',function(){openAuthorPage(r.owner||'');});
+    pt.appendChild(tl);pt.appendChild(ownerLink);priv.appendChild(pt);side.appendChild(priv);
     if(r.status){var stChip=document.createElement('div');stChip.className='stat-chip';stChip.style.cssText='margin-bottom:6px;align-self:flex-start';stChip.textContent='✔ '+r.status;priv.appendChild(stChip);}
     var cf=customFieldsToRows(r);
     if(cf.length){
@@ -1179,6 +1288,7 @@
   /* actions */
   document.getElementById('addBtn').addEventListener('click',openModal);
   document.getElementById('backBtn').addEventListener('click',function(){currentShow=null;switchView('book');renderBook();});
+  var abk=document.getElementById('authorBackBtn');if(abk)abk.addEventListener('click',function(){currentShow=null;switchView('book');renderBook();});
   document.getElementById('editBtn').addEventListener('click',function(){if(currentShow)openEdit(currentShow);});
   document.getElementById('delBtn').addEventListener('click',function(){
     if(!currentShow)return;
@@ -1241,7 +1351,24 @@
     toast('Добро пожаловать, '+name);
     rememberDevice();
     loadMyRole().then(function(){renderAuthUI();renderBook();});
+    loadProfileFromDb().then(function(){renderAuthUI();renderBook();});
     applyPrefsFromDb(name);
+  }
+  /* Подтягиваем профиль (имя, аватар) из БД для вошедшего пользователя. */
+  function loadProfileFromDb(){
+    var me=currentUser();if(!me||!me.id||!accessToken())return Promise.resolve();
+    return sbFetch('profiles?select=name,email,avatar&id=eq.'+me.id+'&limit=1',{headers:sbHeaders()})
+      .then(function(rows){
+        var p=(rows&&rows[0])||null;
+        if(p){
+          if(p.avatar)me.avatar=p.avatar;
+          if(p.name)me.name=p.name;
+          if(p.email)me.email=p.email;
+          setAuthUser(me);
+          if(storage){try{storage.setItem('recipebook_me',JSON.stringify(me));}catch(e){}}
+        }
+        return me;
+      }).catch(function(){return me;});
   }
   /* Запоминаем устройство cookie после успешного входа: при последующих
      посещениях с этого устройства вход сохраняется (токен в cookie). */
@@ -1274,10 +1401,71 @@
     renderAuthUI();renderBook();closeDD();switchView('book');applyTheme(defaultTheme);document.getElementById('bookTitle').textContent='BY KOT · Рецепты, которые мурчат';toast('Вы вышли');
   }
 
-  document.getElementById('guestLoginBtn').addEventListener('click',showLogin);
-  document.getElementById('loginView').addEventListener('click',function(e){if(e.target.id==='backBook2'){switchView('book');document.getElementById('bookTitle').textContent='BY KOT · Рецепты, которые мурчат';applyTheme(defaultTheme);}});
+  /* ---- Account settings modal ---- */
+  var pendingAvatar=null;
+  function openAccountSettings(){
+    var me=currentUser();if(!me){showLogin();return;}
+    pendingAvatar=null;
+    document.getElementById('set-name').value=me.name||'';
+    document.getElementById('set-email').value=me.email||'';
+    document.getElementById('set-pass').value='';
+    var av=me.avatar;
+    if(av){previewAvatar(av);}else{clearAvatarPreview();}
+    document.getElementById('settingsMsg').textContent='';
+    document.getElementById('settingsOverlay').classList.add('open');
+  }
+  function previewAvatar(src){
+    var box=document.getElementById('setAvatarPreview');
+    var img=box.querySelector('img');
+    if(!img){img=document.createElement('img');img.alt='Аватар';box.insertBefore(img,box.firstChild);}
+    img.src=src;box.style.display='block';
+  }
+  function clearAvatarPreview(){
+    var box=document.getElementById('setAvatarPreview');
+    var img=box.querySelector('img');if(img)img.remove();
+    box.style.display='none';
+    document.getElementById('set-avatar').value='';
+  }
+  document.getElementById('settingsClose').addEventListener('click',function(){document.getElementById('settingsOverlay').classList.remove('open');});
+  document.getElementById('settingsOverlay').addEventListener('click',function(e){if(e.target===this)document.getElementById('settingsOverlay').classList.remove('open');});
+  document.getElementById('setAvatarBox').addEventListener('click',function(){document.getElementById('set-avatar').click();});
+  document.getElementById('set-avatar').addEventListener('change',function(){
+    var f=document.getElementById('set-avatar').files&&document.getElementById('set-avatar').files[0];
+    if(!f)return;
+    if(f.size>2*1024*1024){document.getElementById('settingsMsg').textContent='Аватар больше 2 МБ.';document.getElementById('settingsMsg').className='modal-msg error';return;}
+    var rd=new FileReader();
+    rd.onload=function(){pendingAvatar=String(rd.result);previewAvatar(pendingAvatar);};
+    rd.readAsDataURL(f);
+  });
+  document.getElementById('setAvatarClear').addEventListener('click',function(){pendingAvatar=null;clearAvatarPreview();});
+  document.getElementById('settingsForm').addEventListener('submit',function(e){
+    e.preventDefault();
+    var me=currentUser();if(!me)return;
+    var name=document.getElementById('set-name').value.trim(),email=document.getElementById('set-email').value.trim(),pass=document.getElementById('set-pass').value;
+    var msg=document.getElementById('settingsMsg');msg.className='modal-msg';
+    if(!name||!email){msg.textContent='Имя и почта обязательны.';msg.className='modal-msg error';return;}
+    msg.textContent='Сохраняю…';
+    var tasks=[];
+    // обновляем профиль в БД
+    var patch={name:name,email:email};
+    if(pendingAvatar)patch.avatar=pendingAvatar;
+    tasks.push(sbFetch('profiles?id=eq.'+me.id,{method:'PATCH',headers:sbHeaders(),body:JSON.stringify(patch)}).then(function(){return true;}).catch(function(){return false;}));
+    // меняем пароль через Auth, если задан
+    if(pass){
+      tasks.push(fetch(SB_URL+'/auth/v1/user',{method:'PUT',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+accessToken(),'Content-Type':'application/json'},body:JSON.stringify({password:pass})}).then(function(){return true;}).catch(function(){return false;}));
+    }
+    Promise.all(tasks).then(function(r){
+      var ok=r.every(function(x){return x!==false;});
+      me.name=name;me.email=email;if(pendingAvatar)me.avatar=pendingAvatar;
+      setAuthUser(me);
+      if(storage){try{storage.setItem('recipebook_me',JSON.stringify(me));}catch(x){}}
+      document.getElementById('settingsOverlay').classList.remove('open');
+      renderAuthUI();
+      toast(ok?'Настройки сохранены.':'Сохранено частично (проверьте почту в профиле).');
+    });
+  });
 
-  /* profile dropdown */
+  document.getElementById('guestLoginBtn').addEventListener('click',showLogin);
   var pm=document.getElementById('profileMenu'),dd=document.getElementById('profileDD'),pbtn=document.getElementById('profileBtn');
   function closeDD(){pm.classList.remove('open');pbtn.setAttribute('aria-expanded','false');}
   pbtn.addEventListener('click',function(e){e.stopPropagation();var open=pm.classList.toggle('open');pbtn.setAttribute('aria-expanded',open?'true':'false');renderAuthUI();});
@@ -1293,6 +1481,9 @@
     document.getElementById('countLine').textContent=mine.length+' ваших рецептов';
   }
   document.getElementById('ddLogout').addEventListener('click',doLogout);
+  document.getElementById('ddSettings').addEventListener('click',function(){
+    closeDD();openAccountSettings();
+  });
   document.getElementById('ddText').addEventListener('click',function(){
     var next=!largeTextOn();
     if(storage){try{storage.setItem('recipebook_large',next?'on':'off');}catch(e){}}

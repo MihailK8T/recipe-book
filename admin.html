@@ -283,14 +283,14 @@
 
   function loadRecipes(){
     var list=document.getElementById('recipesList');
-    api('recipes?select=id,name,owner_id,private,status&order=created_at.desc',{headers:headers()}).then(function(rows){
+    api('recipes?select=id,name,owner_id,private&order=created_at.desc',{headers:headers()}).then(function(rows){
       list.innerHTML='';
       if(!rows||!rows.length){list.innerHTML='<li class="empty">Рецептов пока нет.</li>';return;}
       rows.forEach(function(r){
         var li=document.createElement('li');
         var w=document.createElement('div');w.className='who';w.textContent=r.name;
         var meta=document.createElement('div');meta.className='meta';
-        meta.textContent=(r.private?'🔒 личный':'🌍 общий')+(r.status?(' · '+r.status):'')+' · id:'+r.id;
+        meta.textContent=(r.private?'🔒 личный':'🌍 общий')+' · id:'+r.id;
         li.appendChild(w);li.appendChild(meta);
         var acts=document.createElement('div');acts.className='acts';
         var del=document.createElement('button');del.type='button';del.className='btn btn-sm btn-danger';del.textContent='Удалить';
