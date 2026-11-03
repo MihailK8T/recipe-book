@@ -361,7 +361,7 @@
           <button class="authtab" data-at="register" aria-selected="false">Регистрация</button>
         </div>
         <form class="auth-form active" id="loginForm" novalidate>
-          <div class="field"><label for="li-name">Имя пользователя</label><input type="text" id="li-name" autocomplete="username" required placeholder="Ваше имя"></div>
+          <div class="field"><label for="li-name">Почта</label><input type="email" id="li-name" autocomplete="username" required placeholder="you@mail.ru"></div>
           <div class="field"><label for="li-pass">Пароль</label><input type="password" id="li-pass" autocomplete="current-password" required placeholder="••••••••"></div>
           <button type="submit" class="btn btn-primary btn-block">Войти</button>
           <p class="modal-msg" id="loginMsg" style="margin-top:10px" aria-live="polite"></p>
@@ -870,8 +870,15 @@
   function metaRow(k,v){var d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;gap:10px';var kk=document.createElement('span');kk.style.color='var(--muted)';kk.textContent=k;var vv=document.createElement('b');vv.textContent=v;d.appendChild(kk);d.appendChild(vv);return d;}
 
   /* modal */
+  function showApprovalNotice(){
+    toast('Ваш аккаунт ещё не одобрен администратором. Публиковать и копировать рецепты можно после одобрения; сейчас доступен только просмотр.');
+  }
   function openModal(){
     if(!currentUser()){showLogin();return;}
+    if(!currentUserApproved()){
+      showApprovalNotice();
+      return;
+    }
     editingId=null;pendingPhoto=null;
     document.getElementById('recipeForm').reset();
     document.getElementById('r-private').checked=true;
@@ -1192,6 +1199,7 @@
   }
   function copyRecipe(id){
     var r=fine(id);if(!r)return;
+    if(!currentUserApproved()){showApprovalNotice();return;}
     var text=buildCopyText(r);
     function ok(){toast('Рецепт скопирован — вставьте в чат');}
     function no(){toast('Не удалось скопировать. Выделите текст вручную.');}
@@ -1249,9 +1257,26 @@
     renderAuthUI();renderBook();
     switchView('book');
     applyTheme(defaultTheme);
-document.getElementById('bookTitle').textContent='BY KOT · Рецепты, которые мурчат';
+    document.getElementById('bookTitle').textContent='BY KOT · Рецепты, которые мурчат';
     toast('Добро пожаловать, '+name);
+    loadApprovalStatus().then(function(){renderAuthUI();renderBook();});
     applyPrefsFromDb(name);
+  }
+  /* Запрашиваем approved у текущего пользователя из profiles. */
+  function loadApprovalStatus(){
+    var me=currentUser();if(!me||!me.id||!accessToken())return Promise.resolve(false);
+    return sbFetch('profiles?select=approved,role,email&id=eq.'+me.id+'&limit=1',{headers:sbHeaders()})
+      .then(function(rows){
+        var p=(rows&&rows[0])||null;
+        if(p){me.approved=!!p.approved;}
+        else {me.approved=false;}
+        return me.approved;
+      }).catch(function(){handleIfNotApproved();return false;});
+  }
+  function currentUserApproved(){
+    var me=currentUser();
+    if(me&&me.role==='owner')return true;
+    return !!(me&&me.approved);
   }
   function applyPrefsFromDb(accName){
     loadPrefsFromDb(accName).then(function(p){

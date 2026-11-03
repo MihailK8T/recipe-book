@@ -210,23 +210,35 @@
     }).catch(function(){msg.textContent='Ошибка создания работника.';});
   });
 
+  function setApproved(id, val){
+    return api('profiles?id=eq.'+id,{method:'PATCH',headers:headers(),body:JSON.stringify({approved:val})});
+  }
   function loadUsers(){
     var list=document.getElementById('usersList');
-    api('profiles?select=id,name,email&order=created_at.asc',{headers:headers()}).then(function(rows){
+    api('profiles?select=id,name,email,approved&order=created_at.asc',{headers:headers()}).then(function(rows){
       list.innerHTML='';
       if(!rows||!rows.length){list.innerHTML='<li class="empty">Аккаунтов пока нет.</li>';return;}
       rows.forEach(function(u){
         var li=document.createElement('li');
         var w=document.createElement('div');w.className='who';w.textContent=u.name||u.email;
-        var rb=document.createElement('span');rb.className='role-badge role-user';rb.textContent='пользователь';w.appendChild(document.createTextNode(' '));w.appendChild(rb);
+        var st=u.approved?'<span class="role-badge role-owner">одобрен</span>':'<span class="role-badge role-moderator">на модерации</span>';
+        w.insertAdjacentHTML('beforeend',' '+st);
         var meta=document.createElement('div');meta.className='meta';meta.textContent=u.email;
         li.appendChild(w);li.appendChild(meta);
         var acts=document.createElement('div');acts.className='acts';
+        if(!u.approved){
+          var ok=document.createElement('button');ok.type='button';ok.className='btn btn-sm btn-primary';ok.textContent='Одобрить';
+          ok.addEventListener('click',function(){setApproved(u.id,true).then(function(){toast('Аккаунт одобрен');loadUsers();loadStats();}).catch(function(){toast('Ошибка');});});
+          acts.appendChild(ok);
+        } else {
+          var rev=document.createElement('button');rev.type='button';rev.className='btn btn-sm btn-danger';rev.textContent='Отменить';
+          rev.addEventListener('click',function(){setApproved(u.id,false).then(function(){toast('Модерация включена');loadUsers();loadStats();}).catch(function(){toast('Ошибка');});});
+          acts.appendChild(rev);
+        }
         var del=document.createElement('button');del.type='button';del.className='btn btn-sm btn-danger';del.textContent='Удалить аккаунт';
         del.addEventListener('click',function(){if(!confirm('Удалить аккаунт '+u.email+'?'))return;
           Promise.all([
             fetch(SB_URL+'/rest/v1/user_prefs?account_id=eq.'+u.id,{method:'DELETE',headers:headers()}),
-            fetch(SB_URL+'/rest/v1/recipes?owner_id=eq.'+u.id,{method:'DELETE',headers:headers()}),
             fetch(SB_URL+'/rest/v1/recipes?owner_id=eq.'+u.id,{method:'DELETE',headers:headers()})
           ]).then(function(){
             return api('profiles?id=eq.'+u.id,{method:'DELETE',headers:headers()}).then(function(){toast('Аккаунт удалён');loadUsers();loadRecipes();loadStats();});
