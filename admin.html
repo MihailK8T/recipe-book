@@ -139,6 +139,14 @@
 
     <div id="diagBox" style="margin-top:20px;padding:14px 16px;border:1px dashed var(--accent-light);border-radius:12px;font-family:var(--font-mono);font-size:.78rem;color:var(--muted);white-space:pre-wrap;display:none"></div>
     <div style="margin-top:10px;display:none" id="diagBtns"><button type="button" class="btn btn-sm" onclick="window.__diagAgain&&window.__diagAgain()">Повторить диагностику</button></div>
+    <div id="syncBox" style="margin-top:16px;display:none">
+      <div class="card" style="max-width:none">
+        <h2 style="margin-bottom:8px">Синхронизация локального кэша</h2>
+        <p style="color:var(--muted);font-size:.9rem;margin-bottom:10px">Если рецепты были добавлены на сайте без входа или кэш не успел сохраниться, они могли остаться только в браузере. Кнопка переносит их из localStorage в базу всех ИХ владельцем — вы (@owner).</p>
+        <button type="button" class="btn btn-primary" id="syncBtn">Перенести локальные рецепты в базу</button>
+        <span style="margin-left:10px" id="syncResult"></span>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -182,7 +190,15 @@
   function logout(clean){try{localStorage.removeItem(AUTH_KEY);}catch(e){}me=null;document.getElementById('app').style.display='none';document.getElementById('gate').style.display='flex';document.getElementById('whoami').textContent='';}
   function enterAdmin(){document.getElementById('gate').style.display='none';document.getElementById('app').style.display='block';document.getElementById('whoami').textContent=me.email+' · '+me.role;refresh();
     try{diagRecipes();}catch(e){}}
-  function refresh(){loadStats();loadStaff();loadUsers();loadRecipes();}
+  function refresh(){loadStats();loadStaff();loadUsers();loadRecipes();
+
+    // показать кнопку синхронизации только если в кэше есть рецепты
+    try{
+      var cache=JSON.parse(localStorage.getItem('recipebook_recipes')||'[]');
+      var sb=document.getElementById('syncBox');
+      if(Array.isArray(cache)&&cache.length){sb.style.display='block';}
+    }catch(e){}
+  }
 
   function loadStats(){
     Promise.all([
@@ -344,6 +360,23 @@
   }
 
   document.getElementById('logoutBtn')&&document.getElementById('logoutBtn').addEventListener('click',function(){logout();});
+
+  document.getElementById('syncBtn')&&document.getElementById('syncBtn').addEventListener('click',function(){
+    var res=document.getElementById('syncResult');
+    res.textContent='Читаю кэш…';
+    var cache=[];try{cache=JSON.parse(localStorage.getItem('recipebook_recipes')||'[]');}catch(e){}
+    if(!Array.isArray(cache)||!cache.length){res.textContent='В кэше браузера нет рецептов.';return;}
+    var rows=cache.map(function(r){
+      var row={id:r.id||('r_'+Date.now()+''+Math.floor(Math.random()*1e6)),name:r.name||'Без названия',cat:r.cat||null,servings:r.servings||2,time:r.time||0,description:r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:r.private?true:false,status:r.status||null,custom_fields:JSON.stringify(r.custom_fields||[]),photo:r.photo||null,photo_name:r.photo_name||null,photo_type:r.photo_type||null,created_at:r.created||r.created_at,updated_at:r.updated||r.updated_at||r.created||r.created_at};
+      if(me&&me.id)row.owner_id=me.id;
+      return row;
+    });
+    res.textContent='Отправляю '+rows.length+' в базу…';
+    fetch(SB_URL+'/rest/v1/recipes?on_conflict=id',{method:'POST',headers:headers({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(rows)})
+      .then(function(r){if(!r.ok){return r.text().then(function(t){throw new Error('db:'+r.status+' '+t.slice(0,200));});}return null;})
+      .then(function(){res.textContent='✓ Отправлено '+rows.length+' рецепт(ов) в базу.';loadRecipes();loadStats();})
+      .catch(function(e){res.textContent='Ошибка: '+e.message;});
+  });
 })();
 </script>
 </body>
