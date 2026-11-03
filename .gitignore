@@ -1,0 +1,6 @@
+# Секреты и служебные файлы — не публиковать
+.office-verify/
+*.local
+.env
+.env.local
+actions*.json

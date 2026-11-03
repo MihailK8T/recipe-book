@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Моя книга рецептов</title>
+<meta name="description" content="Личная книга рецептов: добавляйте рецепты, фото, редактируйте, копируйте и делитесь.">
+<style>
+  :root{
+    --radius:16px;--maxw:1080px;
+    --font-ui:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+    --font-mono:"Consolas","Menlo",monospace;
+    --accent:#16a34a;--accent-strong:#15803d;--accent-soft:#86efac;
+  }
+  :root,.theme-dark{
+    --bg:#0a0f0b;--bg-soft:#0f150f;--panel:#131b14;--panel-2:#1a241b;
+    --line:#22301f;--ink:#eef5ec;--muted:#9db89a;
+    --accent-bg:rgba(34,197,94,.14);--btn-text:#04150a;
+    --shadow:0 10px 28px rgba(0,0,0,.5);--glow:0 0 0 3px rgba(34,197,94,.18);
+    --card:#16201a;
+  }
+  .theme-light{
+    --bg:#f4f9f2;--bg-soft:#ffffff;--panel:#ffffff;--panel-2:#e8f3e6;
+    --line:#d4e4cf;--ink:#16211a;--muted:#58705c;
+    --accent-bg:rgba(34,197,94,.13);--btn-text:#073018;
+    --shadow:0 10px 26px rgba(20,45,25,.12);--glow:0 0 0 3px rgba(34,197,94,.24);
+    --card:#f9fcf8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font-ui);background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased;transition:background .3s ease,color .3s ease;min-height:100vh}
+  a{color:var(--accent-strong);text-decoration:none}
+  button{font-family:inherit;cursor:pointer}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 22px}
+
+  /* header */
+  header{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .nav{display:flex;align-items:center;justify-content:space-between;height:64px;gap:12px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.03em;font-size:1.05rem}
+  .brand .mark{width:30px;height:30px;color:var(--accent-strong)}
+  .nav-controls{display:flex;align-items:center;gap:10px}
+  .theme-toggle{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:6px 8px;cursor:pointer;font-family:inherit;font-weight:600;font-size:.84rem;transition:.18s ease}
+  .theme-toggle:hover{border-color:var(--accent-strong);color:var(--accent-strong)}
+  .theme-toggle .track{position:relative;width:34px;height:18px;border-radius:999px;background:var(--line);flex:none;transition:.2s ease}
+  .theme-toggle .knob{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--accent);transition:transform .22s ease}
+  .theme-light .theme-toggle .knob{transform:translateX(16px)}
+  .theme-toggle .lbl{display:inline-block}
+  @media(max-width:520px){.theme-toggle .lbl{display:none}}
+
+  /* layout */
+  .toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:22px 0 6px}
+  .toolbar h1{font-size:clamp(1.4rem,3vw,1.9rem);font-weight:800}
+  .toolbar p.sub{color:var(--muted);font-size:.92rem}
+  .toolbar-actions{display:flex;gap:10px;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;gap:8px;justify-content:center;padding:11px 18px;border-radius:12px;font-weight:700;font-size:.95rem;border:1px solid transparent;cursor:pointer;transition:transform .13s ease,background .16s ease,box-shadow .16s ease;font-family:inherit}
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:var(--accent);color:var(--btn-text);box-shadow:0 4px 14px var(--accent-bg)}
+  .btn-primary:hover{background:var(--accent-strong);color:#fff}
+  .btn-ghost{border-color:var(--line);color:var(--ink);background:transparent}
+  .btn-ghost:hover{border-color:var(--accent-strong);color:var(--accent-strong)}
+  .btn-sm{padding:7px 12px;font-size:.84rem;border-radius:10px}
+  .btn.danger:hover{border-color:#dc2626;color:#dc2626}
+  .btn:disabled{opacity:.5;pointer-events:none}
+
+  /* search */
+  .search-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:16px 0 8px}
+  .search-box{position:relative;flex:1;min-width:200px}
+  .search-box input{width:100%;padding:11px 13px 11px 38px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:inherit;font-size:.96rem}
+  .search-box .ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:var(--glow)}
+  .filters{display:flex;gap:8px;flex-wrap:wrap}
+  .filter-btn{padding:9px 15px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted);font-weight:600;font-size:.87rem;transition:.15s ease}
+  .filter-btn:hover{color:var(--ink);border-color:var(--accent-strong)}
+  .filter-btn.active{background:var(--accent);border-color:var(--accent);color:var(--btn-text)}
+
+  /* grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px;padding:16px 0 40px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;cursor:pointer}
+  .card:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:var(--shadow)}
+  .card-img{height:150px;background:var(--accent-bg);background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:2.6rem}
+  .card-body{padding:14px;display:flex;flex-direction:column;gap:8px;flex:1}
+  .card-body h3{font-size:1.02rem;font-weight:800;line-height:1.3}
+  .card-tags{display:flex;gap:6px;flex-wrap:wrap}
+  .pill{font-family:var(--font-mono);font-size:.72rem;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+  .pill.private{background:rgba(234,179,8,.15);border-color:rgba(234,179,8,.4);color:#ca8a04}
+  .theme-light .pill.private{color:#a06a00}
+  .pill.public{background:var(--accent-bg);border-color:var(--accent-strong);color:var(--accent-strong)}
+  .card-body .meta{color:var(--muted);font-size:.82rem;margin-top:auto;padding-top:6px;display:flex;gap:10px;flex-wrap:wrap}
+  .empty-state{grid-column:1/-1;text-align:center;color:var(--muted);padding:50px 20px;border:1px dashed var(--line);border-radius:var(--radius)}
+  .empty-state .big{font-size:2.6rem;margin-bottom:10px}
+  .empty-state b{display:block;color:var(--ink);font-size:1.1rem;margin-bottom:4px}
+  .empty-state .actions{margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+
+  /* toolbar on book page */
+  .book-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:18px 0 6px}
+  .book-toolbar .back{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:var(--muted);background:none;border:none;font-size:.95rem;padding:6px 0}
+  .book-toolbar .back:hover{color:var(--accent-strong)}
+  .book-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+  /* detail */
+  .detail{display:grid;grid-template-columns:1.5fr 1fr;gap:26px;padding:18px 0 50px;align-items:start}
+  @media(max-width:820px){.detail{grid-template-columns:1fr}}
+  .hero-img{height:280px;border-radius:var(--radius);background:var(--accent-bg);background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:4.4rem;border:1px solid var(--line);overflow:hidden}
+  .hero-img img{width:100%;height:100%;object-fit:cover}
+  .detail-side{display:flex;flex-direction:column;gap:14px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+  .panel h3{font-size:.82rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px;font-family:var(--font-mono)}
+  .ingredients{list-style:none}
+  .ingredients li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:.95rem}
+  .ingredients li:last-child{border-bottom:none}
+  .ingredients li span{color:var(--muted);white-space:nowrap}
+  .steps{list-style:none;counter-reset:step}
+  .steps li{counter-increment:step;padding:10px 0 10px 46px;position:relative;font-size:.97rem;color:var(--ink)}
+  .steps li::before{content:counter(step);position:absolute;left:0;top:9px;width:30px;height:30px;border-radius:50%;background:var(--accent-bg);color:var(--accent-strong);font-weight:800;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:.85rem}
+  .detail h1{font-size:clamp(1.6rem,3.4vw,2.2rem);font-weight:900;line-height:1.2;margin-bottom:12px}
+  .tagline{color:var(--muted);margin-bottom:16px}
+  .stat-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .stat-chip{background:var(--accent-bg);border:1px solid var(--line);border-radius:10px;padding:7px 12px;font-size:.86rem;font-family:var(--font-mono);color:var(--muted)}
+  .stat-chip b{color:var(--ink);font-weight:700}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.6);display:none;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto;backdrop-filter:blur(2px)}
+  .overlay.open{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:18px;width:100%;max-width:620px;padding:24px;box-shadow:var(--shadow);animation:pop .18s ease}
+  @keyframes pop{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+  .modal-head h2{font-size:1.25rem;font-weight:800}
+  .x-btn{background:none;border:none;color:var(--muted);font-size:1.5rem;cursor:pointer;line-height:1}
+  .x-btn:hover{color:var(--ink)}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:.86rem;font-weight:600;color:var(--muted);margin-bottom:6px}
+  .field input,.field textarea,.field select{width:100%;padding:11px 13px;border-radius:10px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-family:inherit;font-size:.96rem}
+  .field textarea{resize:vertical}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:520px){.row2{grid-template-columns:1fr}}
+  .switch-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg-soft);margin-bottom:14px}
+  .switch-row .sw-label{font-weight:600;font-size:.95rem}
+  .switch-row .sw-sub{color:var(--muted);font-size:.8rem}
+  .switch{position:relative;width:48px;height:27px;flex:none}
+  .switch input{opacity:0;width:0;height:0}
+  .switch .slider{position:absolute;inset:0;background:var(--line);border-radius:999px;transition:.2s}
+  .switch .slider::before{content:"";position:absolute;width:21px;height:21px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+  .switch input:checked + .slider{background:var(--accent)}
+  .switch input:checked + .slider::before{transform:translateX(21px)}
+  .switch input:checked + .slider.pub{background:var(--accent-strong)}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px}
+  .modal-msg{font-size:.9rem;font-weight:600;margin-top:10px;color:var(--accent-strong);min-height:1.2em}
+  .modal-msg.error{color:#dc2626}
+
+  /* photo picker */
+  .photo-box{border:2px dashed var(--line);border-radius:12px;padding:16px;text-align:center;cursor:pointer;transition:.16s ease;background:var(--bg-soft)}
+  .photo-box:hover,.photo-box.drag{border-color:var(--accent);background:var(--accent-bg)}
+  .photo-box .ico{font-size:1.7rem}
+  .photo-box .st{color:var(--muted);font-size:.86rem}
+  .photo-box .st small{display:block;font-family:var(--font-mono);font-size:.72rem;opacity:.85}
+  .photo-preview{position:relative;margin-top:10px}
+  .photo-preview img{width:100%;max-height:220px;object-fit:cover;border-radius:10px;display:block;border:1px solid var(--line)}
+  .photo-preview .clear{position:absolute;top:8px;right:8px;border:none;background:rgba(0,0,0,.65);color:#fff;width:30px;height:30px;border-radius:50%;font-size:1.1rem;cursor:pointer}
+
+  /* copy toast */
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:var(--panel);border:1px solid var(--accent);color:var(--ink);padding:12px 20px;border-radius:11px;font-size:.92rem;transition:.25s ease;z-index:200;box-shadow:var(--shadow);display:flex;align-items:center;gap:8px}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  footer{border-top:1px solid var(--line);padding:30px 0 40px;color:var(--muted);font-size:.85rem;text-align:center}
+  footer .mono{font-family:var(--font-mono);color:var(--accent-strong)}
+
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 30 30" aria-hidden="true">
+        <path fill="currentColor" d="M15 3c4 4 6 7 6 11a6 6 0 0 1-12 0c0-1.7.6-3.2 1.6-4.6C11.4 7.5 13 5.5 15 3z M15 11c-1 1.2-2 2.6-2 4a2 2 0 0 0 4 0c0-1.4-.8-2.7-1.8-4z"/><circle cx="15" cy="7" r="1" fill="currentColor" opacity=".5"/>
+      </svg>
+      <span>Книга рецептов</span>
+    </div>
+    <div class="nav-controls">
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Переключить тему" aria-pressed="false">
+        <span class="track" aria-hidden="true"><span class="knob"></span></span>
+        <span class="lbl" id="themeLabel">Тёмная</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- BOOK -->
+  <section id="bookView">
+    <div class="toolbar">
+      <div>
+        <h1>Моя книга рецептов</h1>
+        <p class="sub" id="countLine">все рецепты</p>
+      </div>
+      <div class="toolbar-actions">
+        <button class="btn btn-ghost" id="showPrivateBtn" type="button" aria-pressed="false">Только мои</button>
+        <button class="btn btn-primary" id="addBtn" type="button">+ Новый рецепт</button>
+      </div>
+    </div>
+
+    <div class="search-row">
+      <div class="search-box">
+        <span class="ico" aria-hidden="true">🔍</span>
+        <input type="search" id="searchInput" placeholder="Поиск по названию, ингредиентам, описанию…" aria-label="Поиск рецептов">
+      </div>
+      <div class="filters" id="filters" role="group" aria-label="Фильтры"></div>
+    </div>
+
+    <div class="grid" id="bookGrid"></div>
+  </section>
+
+  <!-- DETAIL -->
+  <section id="detailView" style="display:none">
+    <div class="book-toolbar">
+      <button class="back" id="backBtn" type="button" aria-label="Назад к книге">← Все рецепты</button>
+      <div class="book-actions">
+        <button class="btn btn-ghost btn-sm" id="copyBtn" type="button">⧉ Копировать</button>
+        <button class="btn btn-ghost btn-sm" id="editBtn" type="button">✎ Изменить</button>
+        <button class="btn btn-danger btn-sm" id="delBtn" type="button">Удалить</button>
+      </div>
+    </div>
+    <article id="detailContent" class="detail"></article>
+  </section>
+</main>
+
+<!-- MODAL (add / edit) -->
+<div class="overlay" id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <form class="modal" id="recipeForm" novalidate>
+    <div class="modal-head">
+      <h2 id="modalTitle">Новый рецепт</h2>
+      <button type="button" class="x-btn" id="modalClose" aria-label="Закрыть">×</button>
+    </div>
+
+    <div class="field">
+      <label for="r-name">Название рецепта *</label>
+      <input type="text" id="r-name" required placeholder="Например: Борщ по-домашнему">
+    </div>
+
+    <div class="field">
+      <label>Фото</label>
+      <div class="photo-box" id="photoBox" role="button" tabindex="0" aria-label="Загрузить фото">
+        <div class="ico" aria-hidden="true">📷</div>
+        <div class="st">Нажмите или перетащите фото сюда<small>JPG или PNG · фото хранится в браузере</small></div>
+      </div>
+      <input type="file" id="r-image" accept="image/*" hidden aria-label="Выбрать файл фото">
+      <div class="photo-preview" id="photoPreview" style="display:none">
+        <button type="button" class="clear" id="photoClear" aria-label="Убрать фото">×</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="r-cat">Категория</label>
+      <select id="r-cat"></select>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label for="r-servings">Порций</label>
+        <input type="number" id="r-servings" min="1" value="2" aria-label="Порций">
+      </div>
+      <div class="field">
+        <label for="r-time">Время, мин</label>
+        <input type="number" id="r-time" min="0" value="30" aria-label="Время приготовления в минутах">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="r-desc">Краткое описание</label>
+      <textarea id="r-desc" rows="2" placeholder="Одна-две строки о блюде"></textarea>
+    </div>
+
+    <div class="field">
+      <label for="r-ingredients">Ингредиенты (по одному на строку)</label>
+      <textarea id="r-ingredients" rows="4" placeholder="Свекла — 2 шт&#10;Картофель — 3 шт"></textarea>
+      <div class="ing-form-row" id="ingQuick" style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"></div>
+    </div>
+
+    <div class="field">
+      <label for="r-steps">Способ приготовления (по шагам, по одному в строке)</label>
+      <textarea id="r-steps" rows="5" placeholder="1. Сварите бульон.&#10;2. Добавьте овощи."></textarea>
+    </div>
+
+    <div class="switch-row">
+      <div>
+        <div class="sw-label">Личный рецепт</div>
+        <div class="sw-sub">только для вас / доступен всем</div>
+      </div>
+      <label class="switch" aria-label="Переключатель приватности">
+        <input type="checkbox" id="r-private" checked>
+        <span class="slider pub"></span>
+      </label>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="saveDraftBtn">Сохранить черновик</button>
+      <button type="submit" class="btn btn-primary" id="saveRecipeBtn">Сохранить рецепт</button>
+      <span class="modal-msg" id="modalMsg" role="status" aria-live="polite"></span>
+    </div>
+  </form>
+</div>
+
+<footer>
+  <div class="wrap">Книга рецептов · <span class="mono">данные сохраняются в вашем браузере</span></div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  'use strict';
+  var storage = (function(){ try{var t='__t';localStorage.setItem(t,'1');localStorage.removeItem(t);return localStorage;}catch(e){return null;} })();
+  var REC_KEY='recipebook_recipes';
+  var THEME_KEY='recipebook_theme';
+  var DB = {recipes: loadJSON(REC_KEY, [])};
+  var CATS = ['Завтрак','Супы','Основное','Выпечка','Салаты','Десерты','Напитки'];
+
+  function loadJSON(k,d){ if(!storage) return d; try{var r=storage.getItem(k); return r?JSON.parse(r):d;}catch(e){return d;} }
+  function saveJSON(k,v){ if(storage){ try{storage.setItem(k,JSON.stringify(v));}catch(e){} } }
+
+  /* ---------- Theme ---------- */
+  var root=document.documentElement;
+  var toggle=document.getElementById('themeToggle'), tlabel=document.getElementById('themeLabel');
+  function applyTheme(n){
+    root.classList.remove('theme-dark','theme-light'); root.classList.add('theme-'+n);
+    toggle.setAttribute('aria-pressed', n==='light');
+    if(tlabel) tlabel.textContent = n==='dark' ? 'Тёмная':'Светлая';
+  }
+  var saved=null; try{saved=storage?storage.getItem(THEME_KEY):null;}catch(e){}
+  var prefsDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(saved || (prefsDark?'dark':'light'));
+  toggle.addEventListener('click', function(){
+    var cur = root.classList.contains('theme-light')?'light':'dark';
+    var next = cur==='dark'?'light':'dark';
+    applyTheme(next);
+    if(storage){ try{storage.setItem(THEME_KEY,next);}catch(e){} }
+  });
+
+  /* ---------- state ---------- */
+  var currentFilter='all';
+  var currentSearch='';
+  var editingId=null;
+  var pendingPhoto=null;    // dataURL or null
+  var currentShow=null;     // recipe id shown in detail
+
+  var catFilterEls={};
+
+  /* ---------- date helpers ---------- */
+  function nowISO(){ return new Date().toISOString(); }
+  function fmtDate(iso){
+    if(!iso) return '';
+    var d=new Date(iso);
+    if(isNaN(d)) return '';
+    return d.toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric'});
+  }
+
+  /* ---------- render book ---------- */
+  function renderFilters(){
+    var wrap=document.getElementById('filters');
+    wrap.innerHTML='';
+    var all=document.createElement('button');
+    all.type='button'; all.className='filter-btn'+(currentFilter==='all'?' active':''); all.textContent='Все';
+    all.addEventListener('click',function(){currentFilter='all';renderAll();});
+    wrap.appendChild(all);
+    CATS.forEach(function(c){
+      var b=document.createElement('button');
+      b.type='button'; b.className='filter-btn'+(currentFilter===c?' active':''); b.textContent=c;
+      b.addEventListener('click',function(){currentFilter=c;renderAll();});
+      wrap.appendChild(b);
+    });
+  }
+  function fillCatSelect(){
+    var sel=document.getElementById('r-cat');
+    sel.innerHTML='';
+    CATS.forEach(function(c){
+      var o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o);
+    });
+  }
+
+  function privateCount(){ return DB.recipes.filter(function(r){return r.private;}).length; }
+  function viewable(){ return DB.recipes.filter(function(r){ return !r.private; }); }
+  function filtered(){
+    var list = showPrivateOnly() ? DB.recipes : viewable();
+    if(currentFilter!=='all'){ list=list.filter(function(r){return r.cat===currentFilter;}); }
+    if(currentSearch){ var q=currentSearch.toLowerCase(); 
+      list=list.filter(function(r){
+        var hay=(r.name+' '+r.desc+' '+r.ingredients+' '+r.cat).toLowerCase();
+        return hay.indexOf(q)>=0;
+      });
+    }
+    return list.slice().sort(function(a,b){return (b.updated||b.created||0)-(a.updated||a.created||0);});
+  }
+  function showPrivateOnly(){ return document.getElementById('showPrivateBtn').classList.contains('active'); }
+
+  function renderCountLine(){
+    var total=DB.recipes.length, priv=privateCount();
+    var line=total+(total===1?' рецепт':(total<5?' рецепта':' рецептов'));
+    var el=document.getElementById('countLine');
+    if(priv){ line=' · '+priv+(priv===1?' личный':' личных')+' из '+total; }
+    el.textContent=line;
+  }
+
+  function renderBook(){
+    var grid=document.getElementById('bookGrid');
+    var list=filtered();
+    grid.innerHTML='';
+    if(!DB.recipes.length){
+      grid.innerHTML='';
+      var e=document.createElement('div');
+      e.className='empty-state';
+      e.innerHTML='<div class="big">🍽</div><b>Книга пока пуста</b><span>Добавьте первый рецепт — с фото, шагами и пометкой приватности.</span>';
+      var a=document.createElement('div'); a.className='actions';
+      var b=document.createElement('button'); b.type='button'; b.className='btn btn-primary'; b.textContent='+ Добавить рецепт';
+      b.addEventListener('click',openModal);
+      a.appendChild(b); e.appendChild(a); grid.appendChild(e);
+      renderCountLine(); return;
+    }
+    if(!list.length){
+      var e2=document.createElement('div');
+      e2.className='empty-state';
+      e2.innerHTML='<div class="big">🔍</div><b>Ничего не найдено</b><span>Попробуйте изменить поиск или сбросить фильтры.</span>';
+      var a2=document.createElement('div'); a2.className='actions';
+      var b2=document.createElement('button'); b2.type='button'; b2.className='btn btn-ghost'; b2.textContent='Сбросить фильтры';
+      b2.addEventListener('click',function(){currentFilter='all';currentSearch='';document.getElementById('searchInput').value='';renderAll();});
+      a2.appendChild(b2); e2.appendChild(a2); grid.appendChild(e2);
+      return;
+    }
+    list.forEach(function(r){ grid.appendChild(cardFor(r)); });
+    renderCountLine();
+  }
+
+  function renderAll(){ renderFilters(); renderBook(); }
+
+  function cardFor(r){
+    var card=document.createElement('article');
+    card.className='card';
+    if(r.showcard==='off') card.style.display='none';
+    var img=document.createElement('div'); img.className='card-img';
+    if(r.photo){ img.style.backgroundImage='url('+r.photo+')'; img.innerHTML=''; }
+    else img.textContent='🍲';
+    card.appendChild(img);
+
+    var body=document.createElement('div'); body.className='card-body';
+    var h=document.createElement('h3'); h.textContent=r.name;
+    var tags=document.createElement('div'); tags.className='card-tags';
+    var pr=document.createElement('span');
+    if(r.private){ pr.className='pill private'; pr.textContent='🔒 Личный'; }
+    else { pr.className='pill public'; pr.textContent='🌍 Общий'; }
+    tags.appendChild(pr);
+    if(r.cat){ var c=document.createElement('span'); c.className='pill'; c.textContent=r.cat; tags.appendChild(c); }
+    body.appendChild(h); body.appendChild(tags);
+    if(r.desc){ var d=document.createElement('p'); d.style.cssText='color:var(--muted);font-size:.88rem'; d.textContent=r.desc; body.appendChild(d); }
+    var meta=document.createElement('div'); meta.className='meta';
+    var ing = (r.ingredients||'').split('\n').filter(function(x){return x.trim();}).length;
+    if(ing) meta.appendChild(span(' '+ing+' ингр.'));
+    if(r.time) meta.appendChild(span('⏱ '+r.time+' мин'));
+    meta.appendChild(span(fmtDate(r.updated||r.created)));
+    body.appendChild(meta);
+    card.appendChild(body);
+
+    card.addEventListener('click',function(){ openDetail(r.id); });
+    return card;
+  }
+  function span(t){ var s=document.createElement('span'); s.textContent=t; return s; }
+
+  /* ---------- modal ---------- */
+  function openModal(){
+    editingId=null; pendingPhoto=null;
+    document.getElementById('recipeForm').reset();
+    document.getElementById('r-private').checked=true;
+    document.getElementById('modalTitle').textContent='Новый рецепт';
+    document.getElementById('saveRecipeBtn').textContent='Сохранить рецепт';
+    document.getElementById('saveDraftBtn').textContent='Сохранить черновик';
+    removePhotoPreview();
+    setMsg('');
+    fillCatSelect();
+    openOverlay();
+    setTimeout(function(){document.getElementById('r-name').focus();},50);
+  }
+  function openEdit(id){
+    var r=fine(id); if(!r) return;
+    editingId=id;
+    document.getElementById('r-name').value=r.name||'';
+    fillCatSelect(); document.getElementById('r-cat').value=r.cat||CATS[0];
+    document.getElementById('r-servings').value=r.servings||2;
+    document.getElementById('r-time').value=r.time||'';
+    document.getElementById('r-desc').value=r.desc||'';
+    document.getElementById('r-ingredients').value=r.ingredients||'';
+    document.getElementById('r-steps').value=r.steps||'';
+    document.getElementById('r-private').checked=!!r.private;
+    document.getElementById('modalTitle').textContent='Изменить рецепт';
+    document.getElementById('saveRecipeBtn').textContent='Сохранить изменения';
+    document.getElementById('saveDraftBtn').textContent='Сохранить черновик';
+    pendingPhoto=r.photo||null;
+    if(pendingPhoto){ previewPhoto(pendingPhoto); } else { removePhotoPreview(); }
+    setMsg('');
+    openOverlay();
+    setTimeout(function(){document.getElementById('r-name').focus();},50);
+  }
+  function openOverlay(){ document.getElementById('modalOverlay').classList.add('open'); }
+  function closeOverlay(){ document.getElementById('modalOverlay').classList.remove('open'); pendingPhoto=null; document.getElementById('modalMsg').textContent=''; }
+  document.getElementById('modalClose').addEventListener('click',closeOverlay);
+  document.getElementById('modalOverlay').addEventListener('click',function(e){ if(e.target===this) closeOverlay(); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape' && document.getElementById('modalOverlay').classList.contains('open')) closeOverlay(); });
+
+  function previewPhoto(src){
+    var box=document.getElementById('photoPreview');
+    var img=box.querySelector('img');
+    if(!img){ img=document.createElement('img'); img.alt='Предпросмотр фото рецепта'; box.insertBefore(img, box.firstChild); }
+    img.src=src;
+    box.style.display='block';
+  }
+  function removePhotoPreview(){
+    var box=document.getElementById('photoPreview');
+    var img=box.querySelector('img'); if(img) img.remove();
+    box.style.display='none';
+    photoInput.value='';
+  }
+
+  /* photo upload */
+  var photoBox=document.getElementById('photoBox'), photoInput=document.getElementById('r-image');
+  photoBox.addEventListener('click',function(){photoInput.click();});
+  photoBox.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){e.preventDefault();photoInput.click();} });
+  photoInput.addEventListener('change',function(){
+    if(photoInput.files && photoInput.files[0]){
+      var f=photoInput.files[0];
+      if(f.size>3*1024*1024){ setMsg('Фото больше 3 МБ — выберите меньше.','error'); return; }
+      var rd=new FileReader();
+      rd.onload=function(){ pendingPhoto=String(rd.result); previewPhoto(pendingPhoto); };
+      rd.error=function(){ setMsg('Не удалось прочитать фото.','error'); };
+      rd.readAsDataURL(f);
+    }
+  });
+  photoBox.addEventListener('dragover',function(e){e.preventDefault();photoBox.classList.add('drag');});
+  photoBox.addEventListener('dragleave',function(){photoBox.classList.remove('drag');});
+  photoBox.addEventListener('drop',function(e){
+    e.preventDefault(); photoBox.classList.remove('drag');
+    if(e.dataTransfer.files && e.dataTransfer.files[0]){
+      var f=e.dataTransfer.files[0];
+      if(f.size>3*1024*1024){ setMsg('Фото больше 3 МБ.','error'); return; }
+      var rd=new FileReader();
+      rd.onload=function(){ pendingPhoto=String(rd.result); previewPhoto(pendingPhoto); };
+      rd.readAsDataURL(f);
+    }
+  });
+  document.getElementById('photoClear').addEventListener('click',function(){
+    pendingPhoto=null; removePhotoPreview();
+  });
+
+  function setMsg(t,cls){ var m=document.getElementById('modalMsg'); m.textContent=t; m.className='modal-msg'+(cls?' '+cls:''); }
+
+  /* quick ingredient chips */
+  function buildIngQuick(){
+    var w=document.getElementById('ingQuick'); w.innerHTML='';
+    ['Соль','Перец','Масло','Сахар','Мука'].forEach(function(x){
+      var b=document.createElement('button'); b.type='button'; b.className='btn btn-ghost btn-sm';
+      b.textContent='+ '+x;
+      b.addEventListener('click',function(){
+        var ta=document.getElementById('r-ingredients');
+        var val=ta.value.replace(/\s+$/,'');
+        ta.value = val? val+'\n'+x+' — по вкусу' : x+' — по вкусу';
+        ta.focus();
+      });
+      w.appendChild(b);
+    });
+  }
+  buildIngQuick();
+
+  /* ---------- save ---------- */
+  function persist(){
+    saveJSON(REC_KEY, DB.recipes);
+    renderAll();
+    if(currentShow) openDetail(currentShow);
+  }
+  document.getElementById('recipeForm').addEventListener('submit',function(e){
+    e.preventDefault();
+    var name=document.getElementById('r-name').value.trim();
+    if(!name){ setMsg('Введите название рецепта.','error'); document.getElementById('r-name').focus(); return; }
+    var rec;
+    if(editingId){ rec=fine(editingId); if(!rec) rec={id:editingId}; }
+    else {
+      rec={ id:'r_'+Date.now()+'_'+Math.floor(Math.random()*1e6), created:nowISO() };
+      DB.recipes.unshift(rec);
+    }
+    rec.name=name;
+    rec.cat=document.getElementById('r-cat').value;
+    rec.servings=parseInt(document.getElementById('r-servings').value,10)||2;
+    rec.time=parseInt(document.getElementById('r-time').value,10)||0;
+    rec.desc=document.getElementById('r-desc').value.trim();
+    rec.ingredients=document.getElementById('r-ingredients').value.trim();
+    rec.steps=document.getElementById('r-steps').value.trim();
+    rec.private=document.getElementById('r-private').checked;
+    if(pendingPhoto) rec.photo=pendingPhoto;
+    else if(!editingId) delete rec.photo;
+    rec.updated=nowISO();
+    persist();
+    var wasEdit=!!editingId;
+    closeOverlay();
+    document.getElementById('detailView').style.display='block';
+    document.getElementById('bookView').style.display='none';
+    openDetail(rec.id);
+    toast(wasEdit?'Рецепт обновлён':'Рецепт добавлен');
+  });
+  document.getElementById('saveDraftBtn').addEventListener('click',function(){
+    var name=document.getElementById('r-name').value.trim();
+    if(!name){ setMsg('Введите хотя бы название.','error'); return; }
+    var rec;
+    if(editingId){ rec=fine(editingId); if(!rec) rec={id:editingId}; }
+    else { rec={ id:'r_'+Date.now()+'_'+Math.floor(Math.random()*1e6), created:nowISO() }; DB.recipes.unshift(rec); }
+    rec.name=name;
+    rec.cat=document.getElementById('r-cat').value;
+    rec.servings=parseInt(document.getElementById('r-servings').value,10)||2;
+    rec.time=parseInt(document.getElementById('r-time').value,10)||0;
+    rec.desc=document.getElementById('r-desc').value.trim();
+    rec.ingredients=document.getElementById('r-ingredients').value.trim();
+    rec.steps=document.getElementById('r-steps').value.trim();
+    rec.private=document.getElementById('r-private').checked;
+    if(pendingPhoto) rec.photo=pendingPhoto;
+    rec.updated=nowISO();
+    saveJSON(REC_KEY, DB.recipes);
+    var wasEdit=!!editingId;
+    editingId=rec.id;
+    closeOverlay();
+    renderAll();
+    toast(wasEdit?'Черновик обновлён':'Черновик сохранён');
+  });
+
+  /* ---------- actions ---------- */
+  document.getElementById('addBtn').addEventListener('click',openModal);
+  document.getElementById('showPrivateBtn').addEventListener('click',function(){
+    var b=this, act=b.classList.toggle('active');
+    b.setAttribute('aria-pressed', act?'true':'false');
+    b.textContent= act? 'Все рецепты' : 'Только мои';
+    renderBook();
+  });
+  document.getElementById('backBtn').addEventListener('click',function(){
+    currentShow=null;
+    document.getElementById('detailView').style.display='none';
+    document.getElementById('bookView').style.display='block';
+    renderAll();
+  });
+  document.getElementById('editBtn').addEventListener('click',function(){ if(currentShow) openEdit(currentShow); });
+  document.getElementById('delBtn').addEventListener('click',function(){
+    if(!currentShow) return;
+    var r=fine(currentShow); if(!r) return;
+    if(!window.confirm('Удалить рецепт «'+r.name+'»?')) return;
+    DB.recipes=DB.recipes.filter(function(x){return x.id!==currentShow;});
+    saveJSON(REC_KEY,DB.recipes);
+    currentShow=null;
+    document.getElementById('detailView').style.display='none';
+    document.getElementById('bookView').style.display='block';
+    renderAll();
+    toast('Рецепт удалён');
+  });
+
+  /* search */
+  var searchInput=document.getElementById('searchInput');
+  searchInput.addEventListener('input',function(){ currentSearch=searchInput.value.trim(); renderBook(); });
+
+  /* ---------- detail ---------- */
+  function openDetail(id){
+    var r=fine(id); if(!r) return;
+    currentShow=id;
+    document.getElementById('bookView').style.display='none';
+    document.getElementById('detailView').style.display='block';
+    renderDetail(r);
+  }
+  function fine(id){
+    for(var i=0;i<DB.recipes.length;i++){ if(DB.recipes[i].id===id) return DB.recipes[i]; }
+    return null;
+  }
+  function renderDetail(r){
+    var c=document.getElementById('detailContent');
+    c.innerHTML='';
+    var img=document.createElement('div'); img.className='hero-img';
+    if(r.photo){ img.innerHTML='<img src="'+r.photo+'" alt="Фото блюда">'; }
+    else img.textContent='🍲';
+    var side=document.createElement('div'); side.className='detail-side';
+
+    var privPanel=document.createElement('div'); privPanel.className='panel';
+    privPanel.appendChild(pillRow(r));
+    side.appendChild(privPanel);
+
+    var ingPanel=document.createElement('div'); ingPanel.className='panel';
+    ingPanel.appendChild(ch('Ингредиенты'));
+    var ul=document.createElement('ul'); ul.className='ingredients';
+    (r.ingredients||'').split('\n').forEach(function(line){
+      var t=line.trim(); if(!t) return;
+      var li=document.createElement('li');
+      var parts=t.split('—');
+      if(parts.length>1){ var nm=document.createElement('span'); nm.textContent=parts[0].trim(); var q=document.createElement('span'); q.textContent=parts[1].trim(); li.appendChild(nm); li.appendChild(q); }
+      else { li.textContent=t; }
+      ul.appendChild(li);
+    });
+    ingPanel.appendChild(ul);
+    side.appendChild(ingPanel);
+
+    var metaPanel=document.createElement('div'); metaPanel.className='panel';
+    var mr=document.createElement('div');
+    mr.style.cssText='display:flex;flex-direction:column;gap:6px;font-size:.9rem';
+    mr.appendChild(metaRow('Порций', r.servings||'—'));
+    mr.appendChild(metaRow('Время', r.time? r.time+' мин':'—'));
+    mr.appendChild(metaRow('Категория', r.cat||'—'));
+    mr.appendChild(metaRow('Добавлен', fmtDate(r.created)));
+    mr.appendChild(metaRow('Изменён', fmtDate(r.updated)));
+    metaPanel.appendChild(ch('О рецепте')); metaPanel.appendChild(mr);
+    side.appendChild(metaPanel);
+
+    var steps=document.createElement('div'); steps.className='panel';
+    var sHead=document.createElement('h3'); sHead.textContent='Способ приготовления';
+    steps.appendChild(sHead);
+    var ol=document.createElement('ol'); ol.className='steps';
+    var stepsArr=(r.steps||'').split(/\n+/).map(function(x){return x.replace(/^\s*\d+[.)]\s*/,'').trim();}).filter(function(x){return x;});
+    if(!stepsArr.length){ var e=document.createElement('li'); e.style.paddingLeft='0'; e.textContent='Шаги не указаны.'; ol.appendChild(e); }
+    else { stepsArr.forEach(function(s){ var li=document.createElement('li'); li.textContent=s; ol.appendChild(li); }); }
+    steps.appendChild(ol);
+
+    var copyLink=document.createElement('div'); copyLink.style.cssText='margin-top:16px;text-align:right';
+    var cb=document.createElement('button'); cb.type='button'; cb.className='btn btn-ghost btn-sm'; cb.textContent='⧉ Скопировать рецепт';
+    cb.addEventListener('click',function(){copyRecipe(r.id);});
+    copyLink.appendChild(cb);
+    steps.appendChild(copyLink);
+
+    c.appendChild(img);
+    var content=document.createElement('div'); content.className='detail-content';
+    content.style.cssText='display:flex;flex-direction:column;gap:16px';
+    var title=document.createElement('h1'); title.textContent=r.name;
+    var tag=document.createElement('div'); tag.className='tagline'; tag.textContent=r.desc||'';
+    var sr=document.createElement('div'); sr.className='stat-row';
+    if(r.time){ var c1=document.createElement('span'); c1.className='stat-chip'; c1.innerHTML='⏱ <b>'+r.time+'</b> мин'; sr.appendChild(c1); }
+    if(r.servings){ var c2=document.createElement('span'); c2.className='stat-chip'; c2.innerHTML='👥 <b>'+r.servings+'</b> порц.'; sr.appendChild(c2); }
+    var ing0=(r.ingredients||'').split('\n').filter(function(x){return x.trim();}).length;
+    var c3=document.createElement('span'); c3.className='stat-chip'; c3.innerHTML='🧂 <b>'+ing0+'</b> ингр.'; sr.appendChild(c3);
+    content.appendChild(title); content.appendChild(tag); content.appendChild(sr);
+    content.appendChild(steps);
+    // move ingredients from side into content on narrow? side stays below via grid
+    c.appendChild(content);
+  }
+  function ch(t){ var h=document.createElement('h3'); h.textContent=t; return h; }
+  function metaRow(k,v){ var d=document.createElement('div'); d.style.cssText='display:flex;justify-content:space-between;gap:10px'; var kk=document.createElement('span'); kk.style.color='var(--muted)'; kk.textContent=k; var vv=document.createElement('b'); vv.textContent=v; d.appendChild(kk); d.appendChild(vv); return d; }
+  function pillRow(r){
+    var d=document.createElement('div');
+    d.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap';
+    var txt=document.createElement('span'); txt.style.cssText='font-weight:600;font-size:.95rem';
+    txt.textContent = r.private ? '🔒 Личный рецепт' : '🌍 Общий (виден всем)';
+    d.appendChild(txt);
+    return d;
+  }
+
+function emoj(){ return '🍲'; }
+  function buildCopyText(r){
+    var lines=[];
+    lines.push('🍲 '+r.name.toUpperCase());
+    if(r.desc) lines.push(r.desc);
+    lines.push('');
+    lines.push('🕑 Время: '+(r.time?r.time+' мин':'—')+(r.servings?' · 👥 '+r.servings+' порц.':''));
+    if(r.cat) lines.push('🏷 Категория: '+r.cat);
+    lines.push('');
+    var ings=(r.ingredients||'').split('\n').map(function(x){return x.trim();}).filter(function(x){return x;});
+    if(ings.length){ lines.push('📋 ИНГРЕДИЕНТЫ:'); ings.forEach(function(i){ lines.push('  • '+i); }); lines.push(''); }
+    var steps=(r.steps||'').split(/\n+/).map(function(x){return x.replace(/^\s*\d+[.)]\s*/,'').trim();}).filter(function(x){return x;});
+    if(steps.length){ lines.push('👨‍🍳 ПРИГОТОВЛЕНИЕ:'); steps.forEach(function(s,i){ lines.push('  '+(i+1)+'. '+s); }); }
+    lines.push('');
+    lines.push('📝 Из книги рецептов · '+fmtDate(r.updated||r.created));
+    return lines.join('\n');
+  }
+  function copyRecipe(id){
+    var r=fine(id); if(!r) return;
+    var text=buildCopyText(r);
+    function done(ok){
+      if(ok) toast('Рецепт скопирован — готов к отправке');
+      else toast('Не удалось скопировать. Выделите текст вручную.');
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){done(true);},function(){clipFallback(text);});
+    } else clipFallback(text);
+  }
+  function clipFallback(text){
+    var ta=document.createElement('textarea');
+    ta.value=text; ta.style.cssText='position:fixed;opacity:0'; document.body.appendChild(ta);
+    ta.select();
+    var ok=false;
+    try{ ok=document.execCommand('copy'); }catch(e){}
+    document.body.removeChild(ta);
+    toast(ok?'Рецепт скопирован — готов к отправке':'Не удалось скопировать. Выделите текст вручную.');
+  }
+  document.getElementById('copyBtn').addEventListener('click',function(){ if(currentShow) copyRecipe(currentShow); });
+
+  /* toast */
+  function toast(t){
+    var el=document.getElementById('toast');
+    el.textContent=t; el.classList.add('show');
+    clearTimeout(el._t); el._t=setTimeout(function(){el.classList.remove('show');},2300);
+  }
+
+  /* ---------- seed a few example recipes ---------- */
+  if(!DB.recipes.length && storage){
+    DB.recipes=[
+      {id:'seed_1',created:nowISO(),updated:nowISO(),name:'Борщ по-домашнему',cat:'Супы',servings:6,time:90,
+       desc:'Наваристый борщ на говяжьем бульоне со свёклой и капустой.',private:false,
+       ingredients:'Говядина на кости — 700 г\nСвекла — 2 шт\nКапуста — 300 г\nМорковь — 1 шт\nКартофель — 3 шт\nЛук — 1 шт\nТоматная паста — 2 ст. л.\nЧеснок — 3 зубчика\nСоль, перец — по вкусу',
+       steps:'1. Сварите говяжий бульон ~1,5 часа.\n2. Пассеруйте лук, морковь и свёклу с томатной пастой.\n3. Добавьте картофель и капусту в бульон, варите 15 мин.\n4. Заправьте зажаркой, добавьте чеснок и дайте настояться.'},
+      {id:'seed_2',created:nowISO(),updated:nowISO(),name:'Овсянка с ягодами',cat:'Завтрак',servings:1,time:10,
+       desc:'Быстрая и сытная овсяная каша с ягодами.',private:true,
+       ingredients:'Овсяные хлопья — 50 г\nМолоко — 250 мл\nЯгоды — 100 г\nМёд — 1 ч. л.\nКорица — щепотка',
+       steps:'1. Залейте хлопья молоком и варите 5 мин.\n2. Добавьте ягоды и мёд.\n3. Посыпьте корицей и подавайте.'}
+    ];
+    // seed first recipe with public photo? no photo
+    saveJSON(REC_KEY, DB.recipes);
+  }
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
