@@ -176,7 +176,8 @@
           enterAdmin();
         });
       } else { err.textContent='Неверная почта или пароль.'; }
-    }).catch(function(x){err.textContent=x&&x.message||'Ошибка входа.';});
+    }).catch(function(x){err.textContent=(x&&x.message)||'Ошибка входа.';err.textContent=err.textContent+' (Хост: '+SB_URL.replace('https://','').split('.')[0]+'. Проверьте доступ к supabase.co)';
+      err.style.color='#ffb3b3';});
   });
   function logout(clean){try{localStorage.removeItem(AUTH_KEY);}catch(e){}me=null;document.getElementById('app').style.display='none';document.getElementById('gate').style.display='flex';document.getElementById('whoami').textContent='';}
   function enterAdmin(){document.getElementById('gate').style.display='none';document.getElementById('app').style.display='block';document.getElementById('whoami').textContent=me.email+' · '+me.role;refresh();
