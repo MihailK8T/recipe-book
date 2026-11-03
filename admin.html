@@ -364,20 +364,28 @@
   document.getElementById('logoutBtn')&&document.getElementById('logoutBtn').addEventListener('click',function(){logout();});
 
   document.getElementById('syncBtn')&&document.getElementById('syncBtn').addEventListener('click',function(){
-    var res=document.getElementById('syncResult');
+    var res=document.getElementById('syncResult'),btn=document.getElementById('syncBtn');
     res.textContent='Читаю кэш…';
     var cache=[];try{cache=JSON.parse(localStorage.getItem('recipebook_recipes')||'[]');}catch(e){}
     if(!Array.isArray(cache)||!cache.length){res.textContent='В кэше браузера нет рецептов.';return;}
-    var rows=cache.map(function(r){
-      var row={id:r.id||('r_'+Date.now()+''+Math.floor(Math.random()*1e6)),name:r.name||'Без названия',cat:r.cat||null,servings:r.servings||2,time:r.time||0,description:r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:r.private?true:false,status:r.status||null,custom_fields:JSON.stringify(r.custom_fields||[]),photo:r.photo||null,photo_name:r.photo_name||null,photo_type:r.photo_type||null,created_at:r.created||r.created_at,updated_at:r.updated||r.updated_at||r.created||r.created_at};
+    res.textContent='Найдено '+cache.length+' рецепт(ов). Отправляю по одному…';
+    btn.disabled=true;
+    // Отправляем по-штучно с таймаутом, чтобы большой payload не обрывался.
+    // Фото отключаем (data URL раздувают запрос и часто ломают POST); автора не трогаем.
+    function sendOne(r,i){
+      var row={id:r.id||('r_'+Date.now()+(i||0)+''+Math.floor(Math.random()*1e6)),name:r.name||'Без названия',cat:r.cat||null,servings:r.servings||2,time:r.time||0,description:r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:r.private?true:false,status:r.status||null,custom_fields:JSON.stringify(r.custom_fields||[]),photo:null,photo_name:null,photo_type:null,created_at:r.created||r.created_at,updated_at:r.updated||r.updated_at||r.created||r.created_at};
       if(me&&me.id)row.owner_id=me.id;
-      return row;
+      return fetch(SB_URL+'/rest/v1/recipes?on_conflict=id',{method:'POST',headers:headers({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify([row])})
+        .then(function(r){if(!r.ok){return r.text().then(function(t){throw new Error('db:'+r.status+' '+t.slice(0,150));});}return null;});
+    }
+    var chain=Promise.resolve(),done=0,err=null;
+    cache.forEach(function(r,i){
+      chain=chain.then(function(){return sendOne(r,i).then(function(){done++;res.textContent='Отправлено '+done+'/'+cache.length+'…';});});
     });
-    res.textContent='Отправляю '+rows.length+' в базу…';
-    fetch(SB_URL+'/rest/v1/recipes?on_conflict=id',{method:'POST',headers:headers({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(rows)})
-      .then(function(r){if(!r.ok){return r.text().then(function(t){throw new Error('db:'+r.status+' '+t.slice(0,200));});}return null;})
-      .then(function(){res.textContent='✓ Отправлено '+rows.length+' рецепт(ов) в базу.';loadRecipes();loadStats();})
-      .catch(function(e){res.textContent='Ошибка: '+e.message;});
+    chain.then(function(){
+      res.textContent='✓ В базу перенесено рецептов: '+done+' из '+cache.length+(err?(' · Ошибки: '+err):'')+'. Без фото (фото не передавались, чтобы не ломать запрос).';
+      btn.disabled=false;loadRecipes();loadStats();
+    }).catch(function(e){res.textContent='Ошибка на '+done+'/'+cache.length+': '+(e&&e.message||e);btn.disabled=false;});
   });
 })();
 </script>
