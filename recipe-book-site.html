@@ -295,6 +295,7 @@
           <button type="button" class="dd-link" id="ddText">Крупный текст: вкл</button>
           <div class="dd-title">Фон страницы</div>
           <div class="dd-bg" id="ddBgs"></div>
+          <button type="button" class="dd-link dd-save" id="ddSavePrefs" style="margin-top:6px;color:var(--accent-strong);font-weight:700">💾 Сохранить настройки</button>
           <hr class="dd-sep">
           <button type="button" class="dd-link" id="ddAdd">+ Новый рецепт</button>
           <button type="button" class="dd-link" id="ddMine">Мои рецепты</button>
@@ -1529,6 +1530,14 @@
     document.getElementById('countLine').textContent=mine.length+' ваших рецептов';
   }
   document.getElementById('ddLogout').addEventListener('click',doLogout);
+  var dSave=document.getElementById('ddSavePrefs');if(dSave)dSave.addEventListener('click',function(){
+    if(!currentUser()){showLogin();return;}
+    closeDD();
+    savePrefsToDb().then(function(ok){
+      toast(ok?'Настройки сохранены — они применятся при входе':'Не удалось сохранить (проверьте вход)');
+      if(ok)renderBook();
+    });
+  });
   document.getElementById('ddSettings').addEventListener('click',function(){
     closeDD();openAccountSettings();
   });
