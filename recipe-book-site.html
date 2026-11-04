@@ -657,7 +657,7 @@
   /* ---- per-account UI preferences stored in Supabase (user_prefs) ---- */
   function prefsRow(){
     var me=currentUser();if(!me||!me.name)return null;
-    var row={theme:root.classList.contains('theme-light')?'light':'dark',accent:root.getAttribute('data-theme')||'t3',bg:(function(){var c='bg';root.classList.forEach(function(cl){if(cl.indexOf('af-')===0)c=cl.slice(3);});return c;})(),large_text:largeTextOn(),quick_items:quickItems().join('\n'),statuses:statusList().join('\n')};
+    var row={theme:root.classList.contains('theme-light')?'light':'dark',accent:root.getAttribute('data-theme')||'t3',bg:(function(){var c='bg';root.classList.forEach(function(cl){if(cl.indexOf('af-')===0)c=cl.slice(3);});return c;})(),large_text:largeTextOn(),quick_items:quickItems().join('\n')};
     // account_id берём из токена; RLS разрешит запись только своей строке.
     if(me.id)row.account_id=me.id;
     return row;
@@ -1347,6 +1347,7 @@
   function clipFallback(text){var ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();var ok=false;try{ok=document.execCommand('copy');}catch(e){}document.body.removeChild(ta);ok?toast('Рецепт скопирован — вставьте в чат'):toast('Не удалось скопировать. Выделите текст вручную.');}
   /* Экспорт рецепта в красивый документ Word (.doc через HTML-совместимый формат) */
   function downloadRecipeDoc(id){
+    if(!currentUser()){showLogin();return;}
     var r=fine(id);if(!r)return;
     function esc(t){if(t==null)return'';return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
     var ingHtml=(r.ingredients||'').split('\n').map(function(line){var t=line.trim();if(!t)return'';var parts=t.split('—');if(parts.length>1)return '<tr><td>'+esc(parts[0].trim())+'</td><td style="text-align:right;white-space:nowrap">'+esc(parts[1].trim())+'</td></tr>';return '<tr><td colspan="2">'+esc(t)+'</td></tr>';}).join('');
