@@ -316,6 +316,8 @@
         <p class="sub" id="countLine">все рецепты</p>
       </div>
       <div class="toolbar-actions">
+        <button class="btn btn-ghost" id="saveToDbBtn" type="button" title="Отправить все рецепты в базу">⬆ Сохранить в базу</button>
+        <button class="btn btn-ghost" id="loadFromDbBtn" type="button" title="Загрузить рецепты из базы">⬇ Загрузить из базы</button>
         <button class="btn btn-primary" id="addBtn" type="button">+ Новый рецепт</button>
       </div>
     </div>
@@ -1310,6 +1312,17 @@
 
   /* actions */
   document.getElementById('addBtn').addEventListener('click',openModal);
+  document.getElementById('saveToDbBtn').addEventListener('click',function(){
+    if(!currentUser()){showLogin();return;}
+    if(!sbOnline()){toast('Нет сети — проверьте подключение');return;}
+    toast('Отправляю рецепты в базу…');
+    persistToDb().then(function(ok){toast(ok?'Рецепты сохранены в базу ✓':'Не удалось отправить в базу');});
+  });
+  document.getElementById('loadFromDbBtn').addEventListener('click',function(){
+    if(!sbOnline()){toast('Нет сети — проверьте подключение');return;}
+    toast('Загружаю рецепты из базы…');
+    loadFromDb().then(function(ok){if(ok){renderBook();toast('Рецепты загружены из базы ✓');}else{toast('Не удалось загрузить из базы');}});
+  });
   document.getElementById('backBtn').addEventListener('click',function(){currentShow=null;switchView('book');renderBook();});
   var abk=document.getElementById('authorBackBtn');if(abk)abk.addEventListener('click',function(){currentShow=null;switchView('book');renderBook();});
   document.getElementById('editBtn').addEventListener('click',function(){if(currentShow)openEdit(currentShow);});
