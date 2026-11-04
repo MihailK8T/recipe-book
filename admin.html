@@ -84,6 +84,8 @@
       <div class="field"><label for="ad-pass">Пароль</label><input type="password" id="ad-pass" autocomplete="current-password" placeholder="••••••••"></div>
       <button type="submit" class="btn btn-primary btn-block">Войти</button>
       <div class="err" id="loginErr"></div>
+      <p style="margin-top:10px;text-align:center"><button type="button" id="connBtn" class="btn btn-sm" style="background:var(--panel);color:var(--muted)">Проверить доступ к базе</button></p>
+      <div id="connBox" style="font-family:var(--font-mono);font-size:.72rem;color:var(--muted);white-space:pre-wrap;margin-top:8px;padding:8px;border:1px dashed var(--line);border-radius:8px;display:none"></div>
     </form>
   </div>
 </section>
@@ -172,7 +174,12 @@
     var err=document.getElementById('loginErr');
     if(!email||!pass){err.textContent='Введите почту и пароль.';return;}
     err.textContent='Проверяю…';
+    // Таймаут, чтобы «Проверяю…» не висело вечно при сетевом сбое
+    var timed=false;
+    var to=setTimeout(function(){timed=true;err.textContent='Сервер не отвечает (30 сек). Проверьте интернет/CORS. Нажмите «Проверить доступ к базе».';},30000);
     auth('token?grant_type=password',{email:email,password:pass}).then(function(res){
+      clearTimeout(to);
+      if(timed)return;
       if(res.access_token){
         localStorage.setItem(AUTH_KEY,res.access_token);
         me={email:email,id:res.user&&res.user.id};
@@ -186,6 +193,24 @@
       } else { err.textContent='Неверная почта или пароль.'; }
     }).catch(function(x){err.textContent=(x&&x.message)||'Ошибка входа.';err.textContent=err.textContent+' (Хост: '+SB_URL.replace('https://','').split('.')[0]+'. Проверьте доступ к supabase.co)';
       err.style.color='#ffb3b3';});
+  });
+  // Проверка доступа к базе БЕЗ входа (не зависит от токена)
+  document.getElementById('connBtn').addEventListener('click',function(){
+    var box=document.getElementById('connBox');box.style.display='block';
+    box.textContent='Проверяю связь с '+SB_URL+'…\n';
+    function add(t){box.textContent+=t+'\n';}
+    Promise.race([
+      fetch(SB_URL+'/rest/v1/health',{headers:{'apikey':SB_KEY}}),
+      new Promise(function(_,rej){setTimeout(function(){rej(new Error('таймаут 15с — сервер/сеть не отвечает'));},15000);})
+    ]).then(function(r){return r.text();}).then(function(t){add('GET /health: status OK · '+t.slice(0,120));})
+      .catch(function(e){add('GET /health: НЕУДАЧА — '+e.message);});
+    // оптимистично проверим и POST (тот же preflight что у входа)
+    new Promise(function(res){
+      var done=false,to=setTimeout(function(){done=true;add('POST /auth/v1/health: таймаут 15с — CORS/сеть блокирует POST');res();},15000);
+      fetch(SB_URL+'/auth/v1/health',{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:'{}'})
+        .then(function(r){if(done)return;done=true;clearTimeout(to);add('POST /auth/v1/health: status '+r.status+' (CORS префлайт пропущен ✓)');res();})
+        .catch(function(e){if(done)return;done=true;clearTimeout(to);add('POST /auth/v1/health: FAILED — '+e.message+' (CORS/сеть блокирует POST!)');res();});
+    });
   });
   function logout(clean){try{localStorage.removeItem(AUTH_KEY);}catch(e){}me=null;document.getElementById('app').style.display='none';document.getElementById('gate').style.display='flex';document.getElementById('whoami').textContent='';}
   function enterAdmin(){document.getElementById('gate').style.display='none';document.getElementById('app').style.display='block';document.getElementById('whoami').textContent=me.email+' · '+me.role;refresh();
