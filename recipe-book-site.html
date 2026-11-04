@@ -633,9 +633,22 @@
     if(!SB_ON)return Promise.resolve(false);
     return sbFetch('recipes?select=*&order=created_at.asc',{method:'GET',headers:sbHeaders()}).then(function(rows){
       if(!rows)return false;
-      var mapped=rows.map(function(r){var o={id:r.id,name:r.name,cat:r.cat,servings:r.servings,time:r.time,desc:r.description||r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:!!r.private,status:r.status||null,custom_fields:(function(){try{return JSON.parse(r.custom_fields||'[]');}catch(e){return[];}})(),owner:r.owner||'',owner_id:r.owner_id||null,photo:r.photo||null,photo_name:r.photo_name||null,photo_type:r.photo_type||null,created:r.created_at||r.created,updated:r.updated_at||r.updated};return o;});
-      if(mapped.length){DB.recipes=mapped;saveRecipes();}
-      return true;
+      // Получаем имена владельцев из profiles, чтобы подставить display name (@owner)
+      var byId={};
+      return sbFetch('profiles?select=id,name,avatar',{method:'GET',headers:sbHeaders()}).then(function(profs){
+        if(profs)profs.forEach(function(p){if(p&&p.id)byId[p.id]=p;});
+        var mapped=rows.map(function(r){
+          var prof=byId[r.owner_id]||byId[r.owner]||null;
+          var ownerName=prof?(prof.name||''):'';
+          var o={id:r.id,name:r.name,cat:r.cat,servings:r.servings,time:r.time,desc:r.description||r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:!!r.private,status:r.status||null,custom_fields:(function(){try{return JSON.parse(r.custom_fields||'[]');}catch(e){return[];}})(),owner:r.owner||ownerName,owner_id:r.owner_id||null,author_avatar:(prof&&prof.avatar)||null,photo:r.photo||null,photo_name:r.photo_name||null,photo_type:r.photo_type||null,created:r.created_at||r.created,updated:r.updated_at||r.updated};return o;});
+        if(mapped.length){DB.recipes=mapped;saveRecipes();}
+        return true;
+      }).catch(function(){ 
+        // profiles недоступны — оставляем owner как есть
+        var mapped=rows.map(function(r){var o={id:r.id,name:r.name,cat:r.cat,servings:r.servings,time:r.time,desc:r.description||r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:!!r.private,status:r.status||null,custom_fields:(function(){try{return JSON.parse(r.custom_fields||'[]');}catch(e){return[];}})(),owner:r.owner||'',owner_id:r.owner_id||null,author_avatar:null,photo:r.photo||null,photo_name:r.photo_name||null,photo_type:r.photo_type||null,created:r.created_at||r.created,updated:r.updated_at||r.updated};return o;});
+        if(mapped.length){DB.recipes=mapped;saveRecipes();}
+        return true;
+      });
     }).catch(function(){return false;});
   }
 
@@ -835,7 +848,10 @@
     tags.appendChild(pr);
     if(r.cat){var c=document.createElement('span');c.className='pill';c.textContent=r.cat;tags.appendChild(c);}
     if(r.status){var stv=document.createElement('span');stv.className='pill';stv.style.cssText='border-color:var(--accent-strong);color:var(--accent-light,var(--accent-strong))';stv.textContent='✔ '+r.status;tags.appendChild(stv);}
-    if(r.owner){var o=document.createElement('button');o.type='button';o.className='pill';o.style.cssText='cursor:pointer;border-color:var(--accent-strong);color:var(--accent-light,var(--accent-strong))';o.innerHTML='👤 @'+escapeHtml(r.owner);o.addEventListener('click',function(ev){ev.stopPropagation();openAuthorPage(r.owner);});tags.appendChild(o);}
+    if(r.owner){var o=document.createElement('button');o.type='button';o.className='pill';o.style.cssText='cursor:pointer;border-color:var(--accent-strong);color:var(--accent-light,var(--accent-strong));display:inline-flex;align-items:center;gap:5px;padding:2px 10px';o.addEventListener('click',function(ev){ev.stopPropagation();openAuthorPage(r.owner);});
+    if(r.author_avatar){var oa=document.createElement('img');oa.src=r.author_avatar;oa.alt='';oa.style.cssText='width:16px;height:16px;border-radius:50%;object-fit:cover;display:inline-block';o.appendChild(oa);}
+    else{var oi=document.createElement('span');oi.textContent='👤';o.appendChild(oi);}
+    o.appendChild(document.createTextNode('@'+escapeHtml(r.owner)));tags.appendChild(o);}
     body.appendChild(h);body.appendChild(tags);
     if(r.desc){var d=document.createElement('p');d.style.cssText='color:var(--muted);font-size:.88rem';d.textContent=r.desc;body.appendChild(d);}
     var meta=document.createElement('div');meta.className='meta';
@@ -945,8 +961,10 @@
     var ownerLink=document.createElement('button');
     ownerLink.type='button';
     ownerLink.style.cssText='font-weight:700;font-size:.9rem;background:var(--accent-bg);border:1px solid var(--line);color:var(--accent-light,var(--accent-strong));border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:7px';
-    ownerLink.innerHTML='👤 @'+(r.owner||'—');
     ownerLink.addEventListener('click',function(){openAuthorPage(r.owner||'');});
+    if(r.author_avatar){var oav=document.createElement('img');oav.src=r.author_avatar;oav.alt='';oav.style.cssText='width:22px;height:22px;border-radius:50%;object-fit:cover';ownerLink.appendChild(oav);}
+    else{ownerLink.textContent='👤 ';}
+    ownerLink.appendChild(document.createTextNode('@'+(r.owner||'—')));
     pt.appendChild(tl);pt.appendChild(ownerLink);priv.appendChild(pt);side.appendChild(priv);
     if(r.status){var stChip=document.createElement('div');stChip.className='stat-chip';stChip.style.cssText='margin-bottom:6px;align-self:flex-start';stChip.textContent='✔ '+r.status;priv.appendChild(stChip);}
     var cf=customFieldsToRows(r);

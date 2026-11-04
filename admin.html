@@ -403,12 +403,12 @@
     if(!Array.isArray(cache)||!cache.length){res.textContent='В кэше браузера нет рецептов.';return;}
     res.textContent='Найдено '+cache.length+' рецепт(ов). Отправляю по одному…';
     btn.disabled=true;
-    // Отправляем по-штучно (работает и с фото, колонки photo уже есть в БД).
-    var WITH_PHOTO=true;
+    // Отправляем по-штучно. Фото передаём ТОЛЬКО если оно есть в кэше,
+    // иначе (upsert) оно затрёт существующее фото в базе на пустое.
     function sendOne(r,i){
-      var photo=null,photo_name=null,photo_type=null;
-      if(WITH_PHOTO){photo=r.photo||null;photo_name=r.photo_name||null;photo_type=r.photo_type||null;}
-      var row={id:r.id||('r_'+Date.now()+(i||0)+''+Math.floor(Math.random()*1e6)),name:r.name||'Без названия',cat:r.cat||null,servings:r.servings||2,time:r.time||0,description:r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:r.private?true:false,photo:photo,photo_name:photo_name,photo_type:photo_type,created_at:r.created||r.created_at,updated_at:r.updated||r.updated_at||r.created||r.created_at};
+      var row={id:r.id||('r_'+Date.now()+(i||0)+''+Math.floor(Math.random()*1e6)),name:r.name||'Без названия',cat:r.cat||null,servings:r.servings||2,time:r.time||0,description:r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:r.private?true:false,created_at:r.created||r.created_at,updated_at:r.updated||r.updated_at||r.created||r.created_at};
+      // Фото добавляем в запрос только если оно реально есть (иначе не затираем базу)
+      if(r.photo){row.photo=r.photo;row.photo_name=r.photo_name||null;row.photo_type=r.photo_type||null;}
       if(me&&me.id)row.owner_id=me.id;
       return fetch(SB_URL+'/rest/v1/recipes?on_conflict=id',{method:'POST',headers:headers({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify([row])})
         .then(function(r){if(!r.ok){return r.text().then(function(t){throw new Error('db:'+r.status+' '+t.slice(0,150));});}return null;});
@@ -418,7 +418,7 @@
       chain=chain.then(function(){return sendOne(r,i).then(function(){done++;res.textContent='Отправлено '+done+'/'+cache.length+'…';});});
     });
     chain.then(function(){
-      res.textContent='✓ В базу перенесено рецептов: '+done+' из '+cache.length+(err?(' · Ошибки: '+err):'')+(WITH_PHOTO?'. Фото переданы.':'')+'';
+      res.textContent='✓ В базу перенесено рецептов: '+done+' из '+cache.length+'. Фото передаётся только там, где оно есть в кэше (существующие фото в базе не затираются).';
       btn.disabled=false;loadRecipes();loadStats();
     }).catch(function(e){res.textContent='Ошибка на '+done+'/'+cache.length+': '+(e&&e.message||e);btn.disabled=false;});
   });
