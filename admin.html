@@ -383,6 +383,8 @@
       dreq('[P] мой профиль', 'profiles?select=id,name,email,avatar&id=eq.'+uid+'&limit=1', headers()).then(function(){
         dlog('[P2] Если в [P] нет ключа avatar — колонка отсутствует в БД. Если avatar пустой — профиль не сохранил аватар, только загрузку надо повторить.');
       });
+      // Фолбэк: тот же запрос БЕЗ колонки avatar, чтобы убедиться, что таблица читается вообще
+      dreq('[Pa] профиль без avatar', 'profiles?select=id,name,email&id=eq.'+uid+'&limit=1', headers());
     }
     // Проверка, проходит ли вообще POST (CORS preflight/OPTIONS) к Supabase.
     // Запрос к несуществующему маршруту: если CORS пропущен, сервер вернёт 404,
