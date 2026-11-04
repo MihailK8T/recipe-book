@@ -353,11 +353,19 @@
     dreq('[3] authed recipes', 'recipes?select=id,name,owner_id,private&limit=5', headers()).then(function(){
       dlog('[готово] если выше статусов 200 и данные — значит дело в другом месте; если 401/403 — в RLS/токене.');
     });
-    // Проверка, работает ли is_admin для текущего токена, и есть ли записи вообще.
-    dreq('[4] RPC is_admin()', 'rpc/is_admin', headers());
-    dreq('[5] count recipes (мой токен)', 'recipes?select=id', headers()).then(function(){
-      dlog('[5b] Если в [5] пустой массив — рецептов в БД нет вовсе, и виноват не RLS. Если [4]=false — функция is_admin не срабатывает.');
-    });
+    // Проверка, работает ли вообще POST (CORS/префлайт) к Supabase.
+    dreq('[6] CORS-тест: малый POST заметки тестовой',
+      'probe', null).catch(function(){});
+    // Отдельно проверяем POST напрямую с подробным разбором ошибки
+    (function(){
+      var probe=document.createElement('div');probe.style.cssText='margin-top:8px;font-size:.72rem;color:#ffd1a8';
+      var db=document.getElementById('diagBox');if(db)db.appendChild(probe);
+      probe.textContent='[CORS] проверяю POST…';
+      var body={id:'probe_'+Date.now(),name:'__probe__',description:'',ingredients:'',steps:''};
+      fetch(SB_URL+'/rest/v1/probe',{method:'POST',headers:headers({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(body)})
+        .then(function(r){probe.textContent='[CORS] POST status='+r.status+'; сказал: '+(r.status===404?'маршрут /probe не существует → CORS пропущен, дело не в сети':('см. тело'));return r.text().then(function(t){probe.textContent='[CORS] POST status='+r.status+' тело='+t.slice(0,200);});})
+        .catch(function(e){probe.textContent='[CORS] POST FAILED: '+e.message+' — значит префлайт/сеть блокирует POST до сервера.';});
+    })();
     window.__diagAgain=diagRecipes;
   }
 
