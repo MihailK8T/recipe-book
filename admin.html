@@ -378,6 +378,12 @@
     dreq('[3] authed recipes', 'recipes?select=id,name,owner_id,private&limit=5', headers()).then(function(){
       dlog('[готово] если выше статусов 200 и данные — значит дело в другом месте; если 401/403 — в RLS/токене.');
     });
+    // Проверка профиля текущего пользователя: есть ли колонка avatar и её значение
+    if(uid){
+      dreq('[P] мой профиль', 'profiles?select=id,name,email,avatar&id=eq.'+uid+'&limit=1', headers()).then(function(){
+        dlog('[P2] Если в [P] нет ключа avatar — колонка отсутствует в БД. Если avatar пустой — профиль не сохранил аватар, только загрузку надо повторить.');
+      });
+    }
     // Проверка, проходит ли вообще POST (CORS preflight/OPTIONS) к Supabase.
     // Запрос к несуществующему маршруту: если CORS пропущен, сервер вернёт 404,
     // если CORS заблокирован — браузер отдаст "Failed to fetch".
