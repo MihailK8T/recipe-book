@@ -100,6 +100,18 @@
     </div>
 
     <div class="card" style="max-width:none;margin-bottom:18px">
+      <h2>Создать аккаунт пользователя</h2>
+      <p style="color:var(--muted);font-size:.88rem;margin-bottom:10px">Создаёт аккаунт (почта + пароль + имя). Человек сможет входить на сайт с этими данными.</p>
+      <form id="userForm" class="row-card" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px" novalidate>
+        <div class="field"><label for="au-name">Имя</label><input type="text" id="au-name" placeholder="Иван" autocomplete="off"></div>
+        <div class="field"><label for="au-email">Почта</label><input type="email" id="au-email" placeholder="user@mail.ru" autocomplete="off"></div>
+        <div class="field"><label for="au-pass">Пароль (мин. 6)</label><input type="text" id="au-pass" placeholder="пароль" autocomplete="new-password"></div>
+        <div class="field"><label>&nbsp;</label><button type="submit" class="btn btn-primary btn-block">Создать</button></div>
+      </form>
+      <div class="err" id="userMsg"></div>
+    </div>
+
+    <div class="card" style="max-width:none;margin-bottom:18px">
       <h2>Создать работника</h2>
       <form id="staffForm" class="row-card" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px" novalidate>
         <div class="field"><label for="sf-email">Почта аккаунта</label><input type="email" id="sf-email" placeholder="worker@mail.ru"></div>
@@ -276,6 +288,34 @@
         document.getElementById('sf-email').value='';loadStaff();loadStats();
       });
     }).catch(function(){msg.textContent='Ошибка создания работника.';});
+  });
+
+  // Создание обычного аккаунта через Edge-функцию (server-side, service_role).
+  // Функция сама проверит, что вызывающий — админ, и создаст пользователя в Auth.
+  document.getElementById('userForm').addEventListener('submit',function(e){
+    e.preventDefault();
+    var name=document.getElementById('au-name').value.trim();
+    var email=document.getElementById('au-email').value.trim();
+    var pass=document.getElementById('au-pass').value;
+    var msg=document.getElementById('userMsg');
+    if(!name||!email||!pass){msg.textContent='Заполните имя, почту и пароль.';return;}
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){msg.textContent='Некорректная почта.';return;}
+    if(pass.length<6){msg.textContent='Пароль минимум 6 символов.';return;}
+    msg.textContent='Создаю аккаунт…';
+    fetch(SB_URL+'/functions/v1/admin_create_user',{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Content-Type':'application/json','Authorization':'Bearer '+accessToken()},
+      body:JSON.stringify({name:name,email:email,password:pass})
+    }).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});}).then(function(res){
+      if(res.ok&&res.j&&res.j.ok){
+        msg.textContent='Аккаунт создан: '+email;
+        document.getElementById('au-name').value='';document.getElementById('au-email').value='';document.getElementById('au-pass').value='';
+        loadStats();loadUsers();
+      }else{
+        var d=res.j&&res.j.detail?(': '+res.j.detail):'';
+        msg.textContent='Не удалось создать.'+d+' (функция не задеплоена или нет прав администратора).';
+      }
+    }).catch(function(){msg.textContent='Ошибка сети при создании аккаунта.';});
   });
 
   document.getElementById('adminRecipeForm').addEventListener('submit',function(e){
