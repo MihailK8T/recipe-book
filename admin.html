@@ -406,7 +406,7 @@
     // Отправляем по-штучно с таймаутом, чтобы большой payload не обрывался.
     // Фото отключаем (data URL раздувают запрос и часто ломают POST); автора не трогаем.
     function sendOne(r,i){
-      var row={id:r.id||('r_'+Date.now()+(i||0)+''+Math.floor(Math.random()*1e6)),name:r.name||'Без названия',cat:r.cat||null,servings:r.servings||2,time:r.time||0,description:r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:r.private?true:false,status:r.status||null,photo:null,photo_name:null,photo_type:null,created_at:r.created||r.created_at,updated_at:r.updated||r.updated_at||r.created||r.created_at};
+      var row={id:r.id||('r_'+Date.now()+(i||0)+''+Math.floor(Math.random()*1e6)),name:r.name||'Без названия',cat:r.cat||null,servings:r.servings||2,time:r.time||0,description:r.desc||'',ingredients:r.ingredients||'',steps:r.steps||'',private:r.private?true:false,photo:null,photo_name:null,photo_type:null,created_at:r.created||r.created_at,updated_at:r.updated||r.updated_at||r.created||r.created_at};
       if(me&&me.id)row.owner_id=me.id;
       return fetch(SB_URL+'/rest/v1/recipes?on_conflict=id',{method:'POST',headers:headers({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify([row])})
         .then(function(r){if(!r.ok){return r.text().then(function(t){throw new Error('db:'+r.status+' '+t.slice(0,150));});}return null;});
