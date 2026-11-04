@@ -1,8 +1,11 @@
 -- =========================================================
--- Восстановление схемы таблицы recipes: добавление недостающих колонок
+-- Восстановление схемы: недостающие колонки в recipes и profiles
 -- Выполнить в Supabase: SQL Editor -> New query -> Run (весь блок)
 -- Колонки добавляются, только если их ещё нет (IF NOT EXISTS)
 -- =========================================================
+
+-- Аватар пользователя (профиль): без него профили/аватарки не работают
+alter table public.profiles add column if not exists avatar text;
 
 alter table public.recipes add column if not exists status text;
 alter table public.recipes add column if not exists custom_fields text default '[]';

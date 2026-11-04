@@ -340,6 +340,7 @@
       <button class="back" id="backBtn" type="button">← Все рецепты</button>
       <div class="book-actions">
         <button class="btn btn-ghost btn-sm" id="copyBtn" type="button">⧉ Копировать</button>
+        <button class="btn btn-ghost btn-sm" id="docBtn" type="button">⬇ Скачать документ</button>
         <button class="btn btn-ghost btn-sm" id="editBtn" type="button">✎ Изменить</button>
         <button class="btn btn-danger btn-sm" id="delBtn" type="button">🗑 Удалить</button>
       </div>
@@ -950,6 +951,7 @@
     document.getElementById('editBtn').style.display=canEdit?'':'none';
     document.getElementById('delBtn').style.display=canEdit?'':'none';
     document.getElementById('copyBtn').style.display=canEdit?'':'none';
+    var db2=document.getElementById('docBtn');if(db2)db2.style.display='';
     var img=document.createElement('div');img.className='hero-img';
     var _src=photoSrc(r);
     if(_src){var im=document.createElement('img');im.src=_src;im.alt='Фото блюда';img.appendChild(im);}
@@ -1342,7 +1344,33 @@
     if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(ok,function(){clipFallback(text);});}else clipFallback(text);
   }
   function clipFallback(text){var ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();var ok=false;try{ok=document.execCommand('copy');}catch(e){}document.body.removeChild(ta);ok?toast('Рецепт скопирован — вставьте в чат'):toast('Не удалось скопировать. Выделите текст вручную.');}
+  /* Экспорт рецепта в красивый документ Word (.doc через HTML-совместимый формат) */
+  function downloadRecipeDoc(id){
+    var r=fine(id);if(!r)return;
+    function esc(t){if(t==null)return'';return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+    var ingHtml=(r.ingredients||'').split('\n').map(function(line){var t=line.trim();if(!t)return'';var parts=t.split('—');if(parts.length>1)return '<tr><td>'+esc(parts[0].trim())+'</td><td style="text-align:right;white-space:nowrap">'+esc(parts[1].trim())+'</td></tr>';return '<tr><td colspan="2">'+esc(t)+'</td></tr>';}).join('');
+    var stepsHtml=(r.steps||'').split(/\n+/).map(function(x){var s=x.replace(/^\s*\d+[.)]\s*/,'').trim();if(!s)return'';return '<li>'+esc(s)+'</li>';}).join('');
+    var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>'+esc(r.name)+'</title>'+
+      '<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->'+
+      '<style>body{font-family:Georgia,serif;color:#222;margin:40px} h1{font-size:26pt;margin:0 0 4px;color:#1a5d38} .sub{color:#777;font-size:11pt;margin-bottom:22px} h2{font-size:15pt;margin:22px 0 8px;color:#1a5d38;border-bottom:1px solid #ddd;padding-bottom:3px} table.ing{width:100%;border-collapse:collapse;font-size:12pt} table.ing td,table.ing th{border:1px solid #ccc;padding:7px 10px} table.ing th{background:#f0f6f1;text-align:left} ol.steps{margin:0;padding-left:22px} ol.steps li{font-size:12pt;margin-bottom:8px;line-height:1.5} .foot{margin-top:30px;color:#999;font-size:9pt;border-top:1px solid #eee;padding-top:8px} .desc{font-style:italic;color:#555;font-size:12pt;margin:6px 0 18px}</style></head><body>'+
+      '<h1>'+esc(r.name)+'</h1>'+
+      '<div class="sub">'+(r.cat?'🏷 '+esc(r.cat)+'  ·  ':'')+(r.time?'⏱ '+r.time+' мин  ·  ':'')+(r.servings?'👥 '+r.servings+' порц.':'')+'</div>'+
+      (r.desc?'<div class="desc">'+esc(r.desc)+'</div>':'')+
+      '<h2>Ингредиенты</h2>'+
+      '<table class="ing"><tr><th>Продукт</th><th style="width:32%">Количество</th></tr>'+(ingHtml||'<tr><td colspan="2">—</td></tr>')+'</table>'+
+      '<h2>Способ приготовления</h2>'+
+      '<ol class="steps">'+(stepsHtml||'<li>Шаги не указаны.</li>')+'</ol>'+
+      '<div class="foot">BY KOT · Рецепты, которые мурчат · '+(r.owner?('@'+esc(r.owner)):'')+'</div>'+
+      '</body></html>';
+    var blob=new Blob(['\ufeff'+html],{type:'application/msword'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');a.href=url;a.download=(r.name||'recipe').replace(/[^\wа-яА-ЯёЁ\s-]/g,'').trim().replace(/\s+/g,'_')+'.doc';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(url);},1000);
+    toast('Документ скачан');
+  }
   document.getElementById('copyBtn').addEventListener('click',function(){if(currentShow)copyRecipe(currentShow);});
+  var docBtn=document.getElementById('docBtn');if(docBtn)docBtn.addEventListener('click',function(){if(currentShow)downloadRecipeDoc(currentShow);});
 
   /* auth */
   function showLogin(){switchView('login');document.getElementById('bookTitle').textContent='Аккаунт';applyTheme('light');}
@@ -1577,7 +1605,7 @@
       email=j.email||null;
       name=(j.user_metadata&&j.user_metadata.name)||(email?email.split('@')[0]:null);
     }catch(e){}
-    if(name||id){setAuthUser({id:id,name:name||'…',email:email});loadMyRole().then(function(){renderBook();});}
+    if(name||id){setAuthUser({id:id,name:name||'…',email:email});loadMyRole();loadProfileFromDb().then(function(){renderAuthUI();});renderBook();}
   })();
 
   renderAuthUI();renderBook();
