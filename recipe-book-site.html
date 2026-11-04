@@ -624,13 +624,20 @@
   /* Save all recipes into Supabase (upsert by id). Falls back to localStorage. */
   function persistToDb(){
     if(!SB_ON)return Promise.resolve(false);
-    var rows=DB.recipes.map(recToRow);
+    var me=currentUser();
+    var rows=DB.recipes.filter(function(r){
+      // сохраняем только свои рецепты (я владелец) или локальные без владельца;
+      // чужие рецепты из базы не переписываем — RLS их всё равно отклонит.
+      if(!r.owner_id)return true;
+      if(!me||!me.id)return false;
+      return r.owner_id===me.id;
+    }).map(recToRow);
     if(!rows.length)return Promise.resolve(false);
     var body=JSON.stringify(rows);
     if(body.length>4000000){toast('Слишком много фото для отправки в базу');return Promise.resolve(false);}
     return sbFetch('recipes?on_conflict=id',{method:'POST',headers:sbHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body}).then(function(){
       SB_SYNCED=true;return true;
-    }).catch(function(e){if(e.message==='db-off'||/^db:/.test(e.message)){};return false;});
+    }).catch(function(e){return false;});
   }
   /* Load all recipes from Supabase into memory (best-effort). */
   function loadFromDb(){
